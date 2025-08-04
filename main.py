@@ -20,9 +20,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
-
+# Mount static files - try both locations
+try:
+    app.mount("/static", StaticFiles(directory="static/static", check_dir=False), name="static")
+except:
+    app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
+    
 # Serve React app at root
 @app.get("/")
 async def serve_frontend():
