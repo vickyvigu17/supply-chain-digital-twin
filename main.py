@@ -51,3 +51,20 @@ def get_edges(type: Optional[str] = None):
 def get_stats():
     # Your existing stats code here
     pass
+
+# Add the debug endpoint here
+@app.get("/debug/static")
+async def debug_static():
+    try:
+        if os.path.exists("static"):
+            files = os.listdir("static")
+            return {"static_files": files, "static_exists": True}
+        else:
+            return {"static_exists": False, "error": "static folder not found"}
+    except Exception as e:
+        return {"error": str(e)}
+
+# Catch-all route (keep this last)
+@app.get("/{full_path:path}")
+async def serve_frontend_catch_all(full_path: str):
+    # your code
