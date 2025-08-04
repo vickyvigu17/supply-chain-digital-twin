@@ -21,7 +21,7 @@ app.add_middleware(
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
 
 # Serve React app at root
 @app.get("/")
@@ -31,28 +31,7 @@ async def serve_frontend():
     except Exception as e:
         return {"error": f"Frontend not found: {str(e)}"}
 
-# API endpoints
-@app.get("/api/")
-def read_root():
-    return {"message": "Supply Chain Digital Twin API", "version": "1.0.0"}
-
-# Your existing API endpoints with /api prefix...
-@app.get("/api/nodes")
-def get_nodes(type: Optional[str] = None):
-    # Your existing nodes code here
-    pass
-
-@app.get("/api/edges")
-def get_edges(type: Optional[str] = None):
-    # Your existing edges code here
-    pass
-
-@app.get("/api/stats")
-def get_stats():
-    # Your existing stats code here
-    pass
-
-# Add the debug endpoint here
+# Debug endpoint
 @app.get("/debug/static")
 async def debug_static():
     try:
@@ -64,7 +43,36 @@ async def debug_static():
     except Exception as e:
         return {"error": str(e)}
 
-# Catch-all route (keep this last)
+# API endpoints
+@app.get("/api/")
+def read_root():
+    return {"message": "Supply Chain Digital Twin API", "version": "1.0.0"}
+
+# Your existing API endpoints with /api prefix...
+@app.get("/api/nodes")
+def get_nodes(type: Optional[str] = None):
+    # Your existing nodes code here
+    return {"message": "Nodes endpoint"}
+
+@app.get("/api/edges")
+def get_edges(type: Optional[str] = None):
+    # Your existing edges code here
+    return {"message": "Edges endpoint"}
+
+@app.get("/api/stats")
+def get_stats():
+    # Your existing stats code here
+    return {"message": "Stats endpoint"}
+
+# Catch-all route for React Router
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
-    # your code
+    # If it's an API route, let it pass through
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+    
+    # Otherwise, serve the React app
+    try:
+        return FileResponse("static/index.html")
+    except Exception as e:
+        return {"error": f"Frontend not found: {str(e)}"}
