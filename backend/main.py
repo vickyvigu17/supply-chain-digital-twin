@@ -1,21 +1,37 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import networkx as nx
 import random
 from datetime import datetime, timedelta
+import os
 
 app = FastAPI(title="Supply Chain Digital Twin API", version="1.0.0")
 
 # Add CORS middleware for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files (React build)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve React app at root
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("static/index.html")
+
+# API endpoints with /api prefix
+@app.get("/api/")
+def read_root():
+    return {"message": "Supply Chain Digital Twin API", "version": "1.0.0"}
 
 # --- Ontology Node Types and Properties ---
 NODE_TYPES = {
@@ -31,33 +47,13 @@ NODE_TYPES = {
     "Event": ["event_id", "type", "impacted_entity", "timestamp", "resolution_status"],
 }
 
-# --- Relationships ---
-RELATIONSHIPS = [
-    ("DistributionCenter", "SUPPLIES", "Store"),
-    ("DistributionCenter", "SHIPS", "Truck"),
-    ("Truck", "CARRIES", "Shipment"),
-    ("Shipment", "CONTAINS", "SKU"),
-    ("Shipment", "DELIVERS", "Store"),
-    ("Store", "ORDERS", "PurchaseOrder"),
-    ("PurchaseOrder", "INCLUDES", "SKU"),
-    ("PurchaseOrder", "FULFILLED_BY", "Shipment"),
-    ("Store", "HAS_INVENTORY", "InventorySnapshot"),
-    ("Store", "PROCESSES", "Return"),
-    ("WeatherAlert", "IMPACTS", "DistributionCenter"),
-    ("WeatherAlert", "IMPACTS", "Truck"),
-    ("Event", "ASSOCIATED_WITH", "Truck"),
-    ("Event", "ASSOCIATED_WITH", "PurchaseOrder"),
-]
-
 # --- Graph Model ---
 G = nx.MultiDiGraph()
 
 # --- Helper Functions for Sample Data ---
 def random_location():
-    cities = [
-        "Cincinnati, OH", "Dallas, TX", "Atlanta, GA", "Denver, CO", "Chicago, IL",
-        "Phoenix, AZ", "Seattle, WA", "Orlando, FL", "Nashville, TN", "Salt Lake City, UT"
-    ]
+    cities = ["Cincinnati, OH", "Dallas, TX", "Atlanta, GA", "Denver, CO", "Chicago, IL", 
+              "Phoenix, AZ", "Seattle, WA", "Orlando, FL", "Nashville, TN", "Salt Lake City, UT"]
     return random.choice(cities)
 
 def random_region():
@@ -324,11 +320,7 @@ class EdgeModel(BaseModel):
     properties: Optional[Dict[str, Any]] = None
 
 # --- API Endpoints ---
-@app.get("/")
-def read_root():
-    return {"message": "Supply Chain Digital Twin API", "version": "1.0.0"}
-
-@app.get("/nodes", response_model=List[NodeModel])
+@app.get("/api/nodes", response_model=List[NodeModel])
 def get_nodes(type: Optional[str] = None):
     nodes = []
     for node_id, data in G.nodes(data=True):
@@ -340,7 +332,7 @@ def get_nodes(type: Optional[str] = None):
             ))
     return nodes
 
-@app.get("/edges", response_model=List[EdgeModel])
+@app.get("/api/edges", response_model=List[EdgeModel])
 def get_edges(type: Optional[str] = None):
     edges = []
     for u, v, data in G.edges(data=True):
@@ -353,7 +345,7 @@ def get_edges(type: Optional[str] = None):
             ))
     return edges
 
-@app.get("/node/{node_id}", response_model=NodeModel)
+@app.get("/api/node/{node_id}", response_model=NodeModel)
 def get_node(node_id: str):
     if node_id not in G:
         raise HTTPException(status_code=404, detail="Node not found")
@@ -364,7 +356,7 @@ def get_node(node_id: str):
         properties={k: v for k, v in data.items() if k != "type"}
     )
 
-@app.get("/neighbors/{node_id}", response_model=List[NodeModel])
+@app.get("/api/neighbors/{node_id}", response_model=List[NodeModel])
 def get_neighbors(node_id: str):
     if node_id not in G:
         raise HTTPException(status_code=404, detail="Node not found")
@@ -378,7 +370,7 @@ def get_neighbors(node_id: str):
         ))
     return neighbors
 
-@app.get("/stats")
+@app.get("/api/stats")
 def get_stats():
     return {
         "total_nodes": G.number_of_nodes(),
