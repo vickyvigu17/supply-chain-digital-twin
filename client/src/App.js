@@ -26,10 +26,10 @@ const [apiUrl, setApiUrl] = useState(process.env.REACT_APP_API_URL || 'http://lo
       setGraphLoading(true);
       try {
         const [nodesRes, edgesRes, statsRes] = await Promise.all([
-          axios.get(`${apiUrl}/nodes`),
-          axios.get(`${apiUrl}/edges`),
-          axios.get(`${apiUrl}/stats`),
-        ]);
+  axios.get(`${apiUrl}/api/nodes`),
+  axios.get(`${apiUrl}/api/edges`),
+  axios.get(`${apiUrl}/api/stats`),
+]);
         
         const nodes = nodesRes.data.map(node => ({
           data: { id: node.id, label: node.type, ...node.properties, type: node.type },
