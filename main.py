@@ -35,7 +35,7 @@ async def debug_static():
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
     if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
+        raise HTTPException(status_code=404, detail="API endpoints not found")
     if not os.path.exists("static/index.html"):
         return {"error": "static/index.html not found"}
     return FileResponse("static/index.html")
