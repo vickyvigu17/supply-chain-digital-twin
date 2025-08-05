@@ -20,12 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files - try both locations
-try:
-    app.mount("/static", StaticFiles(directory="static/static", check_dir=False), name="static")
-except:
-    app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
-    
+# Mount static files
+app.mount("/static", StaticFiles(directory="static/static", check_dir=False), name="static")
+
 # Serve React app at root
 @app.get("/")
 async def serve_frontend():
@@ -38,11 +35,22 @@ async def serve_frontend():
 @app.get("/debug/static")
 async def debug_static():
     try:
+        result = {"static_exists": False}
+        
         if os.path.exists("static"):
-            files = os.listdir("static")
-            return {"static_files": files, "static_exists": True}
-        else:
-            return {"static_exists": False, "error": "static folder not found"}
+            result["static_exists"] = True
+            result["static_files"] = os.listdir("static")
+            
+            if os.path.exists("static/static"):
+                result["static_static_files"] = os.listdir("static/static")
+                
+                if os.path.exists("static/static/css"):
+                    result["css_files"] = os.listdir("static/static/css")
+                    
+                if os.path.exists("static/static/js"):
+                    result["js_files"] = os.listdir("static/static/js")
+        
+        return result
     except Exception as e:
         return {"error": str(e)}
 
@@ -51,30 +59,24 @@ async def debug_static():
 def read_root():
     return {"message": "Supply Chain Digital Twin API", "version": "1.0.0"}
 
-# Your existing API endpoints with /api prefix...
 @app.get("/api/nodes")
 def get_nodes(type: Optional[str] = None):
-    # Your existing nodes code here
     return {"message": "Nodes endpoint"}
 
 @app.get("/api/edges")
 def get_edges(type: Optional[str] = None):
-    # Your existing edges code here
     return {"message": "Edges endpoint"}
 
 @app.get("/api/stats")
 def get_stats():
-    # Your existing stats code here
     return {"message": "Stats endpoint"}
 
-# Catch-all route for React Router
+# Catch-all route
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
-    # If it's an API route, let it pass through
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
-    # Otherwise, serve the React app
     try:
         return FileResponse("static/index.html")
     except Exception as e:
