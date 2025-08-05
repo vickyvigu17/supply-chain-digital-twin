@@ -2,6 +2,10 @@
 
 echo "=== Starting build process ==="
 
+# Install Python deps first
+echo "Installing Python dependencies..."
+python3 -m pip install -r requirements.txt
+
 # Build React app
 cd client
 npm install
@@ -20,9 +24,5 @@ cp -r client/build/* static/
 # Show what was copied
 echo "Static folder contents:"
 ls -la static/
-
-# Install Python deps
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
 
 echo "=== Build complete ==="
