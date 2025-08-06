@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: supply-chain-digital-twin
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      cd client && npm install && npm run build && cd ..
+      rm -rf static && mkdir -p static && cp -r client/build/* static/
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: NODE_VERSION  
+        value: 18.17.0

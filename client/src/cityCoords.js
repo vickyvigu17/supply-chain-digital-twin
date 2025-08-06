@@ -1,5 +1,6 @@
 // client/src/cityCoords.js
 export const cityCoords = {
+  // DC Cities
   "Cincinnati, OH": [-84.5120, 39.1031],
   "Dallas, TX": [-96.7970, 32.7767],
   "Atlanta, GA": [-84.3880, 33.7490],
@@ -9,5 +10,33 @@ export const cityCoords = {
   "Seattle, WA": [-122.3321, 47.6062],
   "Orlando, FL": [-81.3792, 28.5383],
   "Nashville, TN": [-86.7816, 36.1627],
-  "Salt Lake City, UT": [-111.8910, 40.7608]
+  "Salt Lake City, UT": [-111.8910, 40.7608],
+  "Boston, MA": [-71.0589, 42.3601],
+  "Detroit, MI": [-83.0458, 42.3314],
+  "Houston, TX": [-95.3698, 29.7604],
+  "Los Angeles, CA": [-118.2437, 34.0522],
+  "New York, NY": [-74.0060, 40.7128],
+  "Philadelphia, PA": [-75.1652, 39.9526],
+  
+  // Store Cities (Different from DC cities)
+  "San Francisco, CA": [-122.4194, 37.7749],
+  "Miami, FL": [-80.1918, 25.7617],
+  "Portland, OR": [-122.6784, 45.5152],
+  "Minneapolis, MN": [-93.2650, 44.9778],
+  "Baltimore, MD": [-76.6122, 39.2904],
+  "Richmond, VA": [-77.4360, 37.5407],
+  "Kansas City, MO": [-94.5786, 39.0997],
+  "San Antonio, TX": [-98.4936, 29.4241],
+  "Las Vegas, NV": [-115.1398, 36.1699],
+  "Charlotte, NC": [-80.8431, 35.2271],
+  "Cleveland, OH": [-81.6944, 41.4993],
+  "Pittsburgh, PA": [-79.9959, 40.4406],
+  "Buffalo, NY": [-78.8784, 42.8864],
+  "Birmingham, AL": [-86.8025, 33.5186],
+  "Oklahoma City, OK": [-97.5164, 35.4676],
+  "Memphis, TN": [-90.0490, 35.1495],
+  "Louisville, KY": [-85.7585, 38.2527],
+  "Milwaukee, WI": [-87.9065, 43.0389],
+  "Albuquerque, NM": [-106.6504, 35.0844],
+  "Tucson, AZ": [-110.9265, 32.2226]
 };
