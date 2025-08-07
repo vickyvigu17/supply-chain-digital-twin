@@ -10,7 +10,11 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
 
   // Helper to get coordinates for a city with small offsets to prevent overlap
   const getCoords = (city, id = '', entityType = '') => {
+    if (!city) return [-98, 39]; // fallback if city is null/undefined
     const baseCoords = cityCoords[city] || [-98, 39]; // fallback: center of US
+    if (!baseCoords || !Array.isArray(baseCoords) || baseCoords.length < 2) {
+      return [-98, 39]; // safe fallback
+    }
     
     // Add small offsets based on entity type and ID to prevent overlap
     let offsetX = 0, offsetY = 0;
@@ -32,7 +36,10 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
       }
     }
     
-    return [baseCoords[0] + offsetX, baseCoords[1] + offsetY];
+    return [
+      (baseCoords[0] || -98) + offsetX, 
+      (baseCoords[1] || 39) + offsetY
+    ];
   };
 
   const handleMarkerClick = (entity, entityType) => {
