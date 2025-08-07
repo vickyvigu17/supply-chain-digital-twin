@@ -467,6 +467,20 @@ async def test_new_endpoint():
         }
     }
 
+@app.get("/unique-test-12345")
+async def unique_test():
+    """Completely unique endpoint that should never be cached"""
+    import datetime
+    import random
+    return {
+        "message": "THIS IS YOUR LIVE CODESPACE SERVER!",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "random_number": random.randint(1000, 9999),
+        "codespace_confirmed": True,
+        "shipments_in_data": len(supply_chain_data["shipments"]),
+        "proof_this_is_new_server": "IF_YOU_SEE_THIS_YOUR_SERVER_IS_LIVE"
+    }
+
 # Catch-all for React Router
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
