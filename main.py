@@ -481,11 +481,12 @@ async def unique_test():
         "proof_this_is_new_server": "IF_YOU_SEE_THIS_YOUR_SERVER_IS_LIVE"
     }
 
-# Catch-all for React Router
+# Catch-all for React Router (MUST BE LAST!)
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
+    # Don't interfere with API routes
     if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoints not found")
+        raise HTTPException(status_code=404, detail="API endpoint not found - check spelling")
     if not os.path.exists("static/index.html"):
         return {"error": "static/index.html not found", "message": "Run build.sh to build the frontend"}
     return FileResponse("static/index.html")
