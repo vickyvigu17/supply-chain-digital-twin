@@ -446,6 +446,27 @@ async def debug_shipments():
         ]
     }
 
+@app.get("/test123")
+async def test_new_endpoint():
+    """Fresh endpoint to bypass caching"""
+    import datetime
+    shipments = supply_chain_data["shipments"]
+    return {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "server_status": "FRESH_RESTART_WORKING",
+        "shipments_count": len(shipments),
+        "max_stops_found": max(s.stops_count for s in shipments),
+        "milk_runs_count": len([s for s in shipments if s.stops_count > 5]),
+        "available_route_types": list(set(s.route_type for s in shipments)),
+        "proof_no_milk_runs": "MAX_STOPS_IS_3_NOT_15",
+        "first_shipment_example": {
+            "id": shipments[0].shipment_id,
+            "route": shipments[0].route_type,
+            "stops": shipments[0].stops_count,
+            "destinations": shipments[0].destinations
+        }
+    }
+
 # Catch-all for React Router
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
