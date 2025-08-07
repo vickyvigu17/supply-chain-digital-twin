@@ -199,24 +199,60 @@ def generate_sample_data():
             store_id=random.choice(stores).store_id
         ))
     
-    # Generate Shipments (15)
+    # Generate Shipments (45) - Multi-stop deliveries (no milk runs)
     shipments = []
     modes = ["FTL", "LTL", "Parcel", "Express"]
     shipment_statuses = ["In Transit", "Delivered", "Delayed", "Processing"]
+    route_types = ["single", "multi-stop"]
     
-    for i in range(15):
+    for i in range(45):
         origin_dc = random.choice(dcs)
-        dest_store = random.choice(stores)
+        
+        route_type = random.choices(
+            route_types, 
+            weights=[40, 60],
+            k=1
+        )[0]
+        
+        if route_type == "single":
+            stops_count = 1
+            # Choose stores from same region to be more realistic
+            region_stores = [s for s in stores if s.region == origin_dc.region]
+            if region_stores:
+                destinations = [random.choice(region_stores).location]
+            else:
+                destinations = [random.choice(stores).location]
+        else:  # multi-stop (2-3 stops max to reduce congestion)
+            stops_count = random.randint(2, 3)
+            region_stores = [s for s in stores if s.region == origin_dc.region]
+            if len(region_stores) >= stops_count:
+                selected_stores = random.sample(region_stores, stops_count)
+            else:
+                selected_stores = random.sample(stores, min(stops_count, len(stores)))
+            destinations = [s.location for s in selected_stores]
+        
+        # Better status distribution
+        if i < 15:
+            status = "In Transit"
+        elif i < 25:
+            status = "Delayed" 
+        elif i < 32:
+            status = "Processing"
+        else:
+            status = "Delivered"
+            
         eta = datetime.datetime.now() + datetime.timedelta(days=random.randint(1, 5))
         
         shipments.append(Shipment(
             shipment_id=f"SH{i+1:04d}",
             carrier=random.choice(carriers),
             mode=random.choice(modes),
-            status=random.choice(shipment_statuses),
+            status=status,
             eta=eta.strftime("%Y-%m-%d"),
             origin=origin_dc.location,
-            destination=dest_store.location
+            destinations=destinations,
+            route_type=route_type,
+            stops_count=stops_count
         ))
     
     # Generate Inventory Snapshots (12)

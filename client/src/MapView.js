@@ -54,47 +54,52 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
       const originCoords = getCoords(shipment.origin);
       const routes = [];
 
-      // Handle multi-stop shipments
+      // Handle both old (destination) and new (destinations) data formats
+      let destinationsList = [];
       if (shipment.destinations && Array.isArray(shipment.destinations)) {
-        shipment.destinations.forEach((destination, destIndex) => {
-          const destCoords = getCoords(destination);
-          
-          // Determine color based on status
-          let strokeColor = "#10b981"; // default green
-          if (shipment.status === "Delayed") strokeColor = "#ef4444"; // red
-          else if (shipment.status === "Processing") strokeColor = "#f59e0b"; // yellow
-          else if (shipment.status === "Delivered") strokeColor = "#6b7280"; // gray
-          
-          routes.push(
-            <Line
-              key={`shipment-${i}-dest-${destIndex}`}
-              from={originCoords}
-              to={destCoords}
-              stroke={highlight?.shipment_id === shipment.shipment_id ? "#f87171" : strokeColor}
-              strokeWidth={highlight?.shipment_id === shipment.shipment_id ? 3 : 2}
-              strokeDasharray={shipment.status === "Delayed" ? "5,5" : "none"}
-              opacity={0.7}
-              onClick={() => handleShipmentClick(shipment)}
-              style={{ cursor: 'pointer' }}
-            />
-          );
-          
-          // Add small circles at destination points for multi-stop routes
-          if (shipment.route_type !== "single") {
-            routes.push(
-              <Marker key={`stop-${i}-${destIndex}`} coordinates={destCoords}>
-                <circle
-                  r={2}
-                  fill={strokeColor}
-                  stroke="#fff"
-                  strokeWidth={1}
-                  opacity={0.8}
-                />
-              </Marker>
-            );
-          }
-        });
+        destinationsList = shipment.destinations;
+      } else if (shipment.destination) {
+        destinationsList = [shipment.destination];
       }
+
+      destinationsList.forEach((destination, destIndex) => {
+        const destCoords = getCoords(destination);
+        
+        // Determine color based on status
+        let strokeColor = "#10b981"; // default green
+        if (shipment.status === "Delayed") strokeColor = "#ef4444"; // red
+        else if (shipment.status === "Processing") strokeColor = "#f59e0b"; // yellow
+        else if (shipment.status === "Delivered") strokeColor = "#6b7280"; // gray
+        
+        routes.push(
+          <Line
+            key={`shipment-${i}-dest-${destIndex}`}
+            from={originCoords}
+            to={destCoords}
+            stroke={highlight?.shipment_id === shipment.shipment_id ? "#f87171" : strokeColor}
+            strokeWidth={highlight?.shipment_id === shipment.shipment_id ? 3 : 2}
+            strokeDasharray={shipment.status === "Delayed" ? "5,5" : "none"}
+            opacity={0.7}
+            onClick={() => handleShipmentClick(shipment)}
+            style={{ cursor: 'pointer' }}
+          />
+        );
+        
+        // Add small circles at destination points for multi-stop routes
+        if (shipment.route_type === "multi-stop" || destinationsList.length > 1) {
+          routes.push(
+            <Marker key={`stop-${i}-${destIndex}`} coordinates={destCoords}>
+              <circle
+                r={2}
+                fill={strokeColor}
+                stroke="#fff"
+                strokeWidth={1}
+                opacity={0.8}
+              />
+            </Marker>
+          );
+        }
+      });
 
       return routes;
     });
@@ -390,15 +395,18 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
                 <div><strong>Mode:</strong> {highlight.mode}</div>
                 <div><strong>ETA:</strong> {highlight.eta}</div>
                 <div><strong>Origin:</strong> {highlight.origin}</div>
-                <div><strong>Route Type:</strong> {highlight.route_type}</div>
-                <div><strong>Stops:</strong> {highlight.stops_count}</div>
-                {highlight.destinations && (
+                {highlight.route_type && <div><strong>Route Type:</strong> {highlight.route_type}</div>}
+                {highlight.stops_count && <div><strong>Stops:</strong> {highlight.stops_count}</div>}
+                {(highlight.destinations || highlight.destination) && (
                   <div style={{ marginTop: '8px' }}>
-                    <strong>Destinations:</strong>
+                    <strong>Destination{highlight.destinations && highlight.destinations.length > 1 ? 's' : ''}:</strong>
                     <div style={{ marginLeft: '8px', fontSize: '11px' }}>
-                      {highlight.destinations.map((dest, i) => (
-                        <div key={i}>• {dest}</div>
-                      ))}
+                      {highlight.destinations ? 
+                        highlight.destinations.map((dest, i) => (
+                          <div key={i}>• {dest}</div>
+                        )) :
+                        <div>• {highlight.destination}</div>
+                      }
                     </div>
                   </div>
                 )}
