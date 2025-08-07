@@ -427,6 +427,25 @@ async def debug_static():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/debug/shipments")
+async def debug_shipments():
+    """Debug endpoint to verify shipment data"""
+    shipments = supply_chain_data["shipments"]
+    return {
+        "count": len(shipments),
+        "max_stops": max(s.stops_count for s in shipments),
+        "milk_runs": len([s for s in shipments if s.stops_count > 5]),
+        "route_types": list(set(s.route_type for s in shipments)),
+        "sample_shipments": [
+            {
+                "id": s.shipment_id,
+                "route_type": s.route_type,
+                "stops_count": s.stops_count,
+                "destinations": s.destinations
+            } for s in shipments[:3]
+        ]
+    }
+
 # Catch-all for React Router
 @app.get("/{full_path:path}")
 async def serve_frontend_catch_all(full_path: str):
