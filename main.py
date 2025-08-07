@@ -467,7 +467,7 @@ async def test_new_endpoint():
         }
     }
 
-@app.get("/unique-test-12345")
+@app.get("/api/live-test")
 async def unique_test():
     """Completely unique endpoint that should never be cached"""
     import datetime
