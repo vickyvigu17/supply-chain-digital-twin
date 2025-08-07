@@ -73,7 +73,9 @@ class Shipment:
     status: str
     eta: str
     origin: str
-    destination: str
+    destinations: List[str]
+    route_type: str
+    stops_count: int
     type: str = "Shipment"
 
 @dataclass
