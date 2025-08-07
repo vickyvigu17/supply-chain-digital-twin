@@ -57,42 +57,46 @@ function App() {
   }, [apiUrl]);
 
   const getFilteredData = () => {
+    const safeData = {
+      stores: supplyChainData.stores || [],
+      distribution_centers: supplyChainData.distribution_centers || [],
+      trucks: supplyChainData.trucks || [],
+      shipments: supplyChainData.shipments || [],
+      events: supplyChainData.events || [],
+      weather_alerts: supplyChainData.weather_alerts || []
+    };
+
     switch (selectedFilter) {
       case "issues":
         return {
-          stores: supplyChainData.stores.filter(store => 
-            supplyChainData.events.some(event => event.impacted_entity.includes(store.store_id))
+          stores: safeData.stores.filter(store => 
+            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(store.store_id))
           ),
-          distribution_centers: supplyChainData.distribution_centers.filter(dc => 
-            supplyChainData.events.some(event => event.impacted_entity.includes(dc.dc_id))
+          distribution_centers: safeData.distribution_centers.filter(dc => 
+            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(dc.dc_id))
           ),
-          trucks: supplyChainData.trucks.filter(truck => 
+          trucks: safeData.trucks.filter(truck => 
             truck.status === "Delayed" || 
-            supplyChainData.events.some(event => event.impacted_entity.includes(truck.truck_id))
+            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(truck.truck_id))
           )
         };
       case "active_shipments":
         return {
-          stores: supplyChainData.stores,
-          distribution_centers: supplyChainData.distribution_centers,
-          shipments: supplyChainData.shipments.filter(sh => sh.status === "In Transit")
+          stores: safeData.stores,
+          distribution_centers: safeData.distribution_centers,
+          shipments: safeData.shipments.filter(sh => sh.status === "In Transit")
         };
       case "weather_impacted":
         return {
-          stores: supplyChainData.stores.filter(store => 
-            supplyChainData.weather_alerts.some(alert => alert.region === store.region)
+          stores: safeData.stores.filter(store => 
+            safeData.weather_alerts.some(alert => alert.region === store.region)
           ),
-          distribution_centers: supplyChainData.distribution_centers.filter(dc => 
-            supplyChainData.weather_alerts.some(alert => alert.region === dc.region)
+          distribution_centers: safeData.distribution_centers.filter(dc => 
+            safeData.weather_alerts.some(alert => alert.region === dc.region)
           )
         };
       default:
-        return {
-          stores: supplyChainData.stores,
-          distribution_centers: supplyChainData.distribution_centers,
-          trucks: supplyChainData.trucks,
-          shipments: supplyChainData.shipments
-        };
+        return safeData;
     }
   };
 
@@ -301,30 +305,36 @@ function App() {
                 <div className="metric">
                   <label>On-Time Delivery Rate</label>
                   <div className="metric-value">
-                    {(100 - (supplyChainData.events.filter(e => e.event_type === "Delay").length / supplyChainData.shipments.length * 100)).toFixed(1)}%
+                    {(() => {
+                      const delayEvents = supplyChainData.events.filter(e => e.event_type === "Delay").length;
+                      const totalShipments = supplyChainData.shipments.length;
+                      if (totalShipments === 0) return "0.0%";
+                      const rate = 100 - (delayEvents / totalShipments * 100);
+                      return isNaN(rate) ? "0.0%" : `${rate.toFixed(1)}%`;
+                    })()}
                   </div>
                 </div>
-                <div className="metric">
-                  <label>Active Issues</label>
-                  <div className="metric-value">
-                    {supplyChainData.events.filter(e => e.resolution_status !== "Resolved").length}
+                                  <div className="metric">
+                    <label>Active Issues</label>
+                    <div className="metric-value">
+                      {(supplyChainData.events || []).filter(e => e.resolution_status !== "Resolved").length}
+                    </div>
                   </div>
-                </div>
-                <div className="metric">
-                  <label>Weather Alerts</label>
-                  <div className="metric-value">
-                    {supplyChainData.weather_alerts.filter(w => w.severity === "High" || w.severity === "Critical").length}
+                  <div className="metric">
+                    <label>Weather Alerts</label>
+                    <div className="metric-value">
+                      {(supplyChainData.weather_alerts || []).filter(w => w.severity === "High" || w.severity === "Critical").length}
+                    </div>
                   </div>
-                </div>
               </div>
             </div>
             
             <div className="analytics-section">
               <h3>Regional Distribution</h3>
               <div className="regional-stats">
-                {["Northeast", "South", "Midwest", "West"].map(region => {
-                  const regionStores = supplyChainData.stores.filter(s => s.region === region).length;
-                  const regionDCs = supplyChainData.distribution_centers.filter(dc => dc.region === region).length;
+                              {["Northeast", "South", "Midwest", "West"].map(region => {
+                const regionStores = (supplyChainData.stores || []).filter(s => s.region === region).length;
+                const regionDCs = (supplyChainData.distribution_centers || []).filter(dc => dc.region === region).length;
                   return (
                     <div key={region} className="region-stat">
                       <div className="region-name">{region}</div>
