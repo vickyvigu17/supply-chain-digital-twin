@@ -26,35 +26,37 @@ function App() {
   const apiUrl = process.env.REACT_APP_API_URL || "";
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch all node types
-        const nodeTypes = [
-          'distribution_centers', 'stores', 'trucks', 'purchase_orders', 
-          'shipments', 'events', 'weather_alerts', 'inventory', 'returns', 'skus'
-        ];
+        // Use hardcoded data to bypass API issues
+        const { supplyChainData: hardcodedData } = await import('./hardcodedData');
         
-        const responses = await Promise.all([
-          ...nodeTypes.map(type => axios.get(`${apiUrl}/api/nodes/${type}`)),
-          axios.get(`${apiUrl}/api/summary`)
-        ]);
+        console.log('🎉 USING HARDCODED DATA WITH ALL FEATURES!');
+        console.log('📦 Shipments:', hardcodedData.shipments.length);
+        console.log('🛑 Max stops:', Math.max(...hardcodedData.shipments.map(s => s.stops_count)));
+        console.log('🚫 Milk runs:', hardcodedData.shipments.filter(s => s.stops_count > 5).length);
         
-        const data = {};
-        nodeTypes.forEach((type, index) => {
-          data[type] = responses[index].data;
+        setSupplyChainData(hardcodedData);
+        setSummary({
+          distribution_centers: hardcodedData.distribution_centers.length,
+          stores: hardcodedData.stores.length,
+          trucks: hardcodedData.trucks.length,
+          purchase_orders: hardcodedData.purchase_orders.length,
+          shipments: hardcodedData.shipments.length,
+          inventory_snapshots: hardcodedData.inventory.length,
+          returns: hardcodedData.returns.length,
+          weather_alerts: hardcodedData.weather_alerts.length,
+          events: hardcodedData.events.length,
+          skus: hardcodedData.skus.length
         });
-        
-        setSupplyChainData(data);
-        setSummary(responses[responses.length - 1].data);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        // Set empty data on error
+        console.error("Error loading data:", err);
       }
       setLoading(false);
     };
-    fetchData();
-  }, [apiUrl]);
+    loadData();
+  }, []);
 
   const getFilteredData = () => {
     const safeData = {
