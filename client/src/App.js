@@ -78,6 +78,10 @@ function App() {
           trucks: safeData.trucks.filter(truck => 
             truck.status === "Delayed" || 
             safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(truck.truck_id))
+          ),
+          shipments: safeData.shipments.filter(shipment => 
+            shipment.status === "Delayed" || 
+            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(shipment.shipment_id))
           )
         };
       case "active_shipments":
@@ -87,12 +91,24 @@ function App() {
           shipments: safeData.shipments.filter(sh => sh.status === "In Transit")
         };
       case "weather_impacted":
+        // Only show entities in regions with active high/critical weather alerts
+        const affectedRegions = safeData.weather_alerts
+          .filter(alert => alert.severity === "High" || alert.severity === "Critical")
+          .map(alert => alert.region);
+        
         return {
           stores: safeData.stores.filter(store => 
-            safeData.weather_alerts.some(alert => alert.region === store.region)
+            affectedRegions.includes(store.region)
           ),
           distribution_centers: safeData.distribution_centers.filter(dc => 
-            safeData.weather_alerts.some(alert => alert.region === dc.region)
+            affectedRegions.includes(dc.region)
+          ),
+          trucks: safeData.trucks.filter(truck => 
+            affectedRegions.some(region => truck.current_location && truck.current_location.includes(region))
+          ),
+          shipments: safeData.shipments.filter(shipment => 
+            affectedRegions.includes(shipment.origin.split(', ')[1]) ||
+            shipment.destinations.some(dest => affectedRegions.includes(dest.split(', ')[1]))
           )
         };
       default:
@@ -262,22 +278,20 @@ function App() {
             </div>
           </div>
 
-          <div className="map-and-panels">
-            <div className="map-section">
-              <MapView 
-                dcs={filteredData.distribution_centers || []}
-                stores={filteredData.stores || []}
-                shipments={filteredData.shipments || []}
-                trucks={filteredData.trucks || []}
-                highlight={highlightedEntity}
-                onEntityClick={setHighlightedEntity}
-              />
-            </div>
-            
-            <div className="side-panels">
-              {renderEventsPanel()}
-              {renderWeatherPanel()}
-            </div>
+          <div className="map-section">
+            <MapView 
+              dcs={filteredData.distribution_centers || []}
+              stores={filteredData.stores || []}
+              shipments={filteredData.shipments || []}
+              trucks={filteredData.trucks || []}
+              highlight={highlightedEntity}
+              onEntityClick={setHighlightedEntity}
+            />
+          </div>
+          
+          <div className="bottom-panels">
+            {renderEventsPanel()}
+            {renderWeatherPanel()}
           </div>
         </div>
       )}
