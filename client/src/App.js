@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import MapView from "./MapView";
 import "./index.css";
 
@@ -22,8 +21,7 @@ function App() {
   const [highlightedEntity, setHighlightedEntity] = useState(null);
   const [activeTab, setActiveTab] = useState("map");
 
-  // Use your deployed backend URL or environment variable
-  const apiUrl = process.env.REACT_APP_API_URL || "";
+
 
   useEffect(() => {
     const loadData = async () => {

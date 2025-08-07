@@ -125,14 +125,7 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
     setCenter([0, 0]);
   };
 
-  const getShipmentColor = (status) => {
-    switch (status) {
-      case "Delayed": return "#ef4444";
-      case "Processing": return "#f59e0b";
-      case "Delivered": return "#6b7280";
-      default: return "#10b981";
-    }
-  };
+
 
   return (
     <div style={{ position: 'relative' }}>
