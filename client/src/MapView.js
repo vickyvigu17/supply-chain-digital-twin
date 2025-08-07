@@ -1,12 +1,39 @@
-import React from "react";
-import { ComposableMap, Geographies, Geography, Marker, Line } from "react-simple-maps";
+import React, { useState } from "react";
+import { ComposableMap, Geographies, Geography, Marker, Line, ZoomableGroup } from "react-simple-maps";
 import { cityCoords } from "./cityCoords";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
 export default function MapView({ dcs, stores, shipments, trucks, highlight, onEntityClick }) {
-  // Helper to get coordinates for a city
-  const getCoords = (city) => cityCoords[city] || [-98, 39]; // fallback: center of US
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState([0, 0]);
+
+  // Helper to get coordinates for a city with small offsets to prevent overlap
+  const getCoords = (city, id = '', entityType = '') => {
+    const baseCoords = cityCoords[city] || [-98, 39]; // fallback: center of US
+    
+    // Add small offsets based on entity type and ID to prevent overlap
+    let offsetX = 0, offsetY = 0;
+    if (id) {
+      const hash = id.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+      offsetX = (hash % 20 - 10) * 0.1; // -1 to 1 degree offset
+      offsetY = ((hash >> 4) % 20 - 10) * 0.1;
+      
+      // Different offsets for different entity types
+      if (entityType === 'DistributionCenter') {
+        offsetX += 0.2;
+        offsetY += 0.2;
+      } else if (entityType === 'Store') {
+        offsetX -= 0.2;
+        offsetY -= 0.2;
+      } else if (entityType === 'Truck') {
+        offsetX += 0.3;
+        offsetY -= 0.1;
+      }
+    }
+    
+    return [baseCoords[0] + offsetX, baseCoords[1] + offsetY];
+  };
 
   const handleMarkerClick = (entity, entityType) => {
     if (onEntityClick) {
@@ -14,132 +41,258 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
     }
   };
 
-  return (
-    <div style={{ position: 'relative' }}>
-      <ComposableMap projection="geoAlbersUsa" width={900} height={500}>
-        <Geographies geography={geoUrl}>
-          {({ geographies }) =>
-            geographies.map(geo => (
-              <Geography 
-                key={geo.rsmKey} 
-                geography={geo} 
-                fill="#EAEAEC" 
-                stroke="#D6D6DA" 
-                strokeWidth={0.5}
-              />
-            ))
-          }
-        </Geographies>
+  const handleShipmentClick = (shipment) => {
+    if (onEntityClick) {
+      onEntityClick({ ...shipment, entityType: 'Shipment' });
+    }
+  };
 
-        {/* Shipment Routes (draw first so they appear behind markers) */}
-        {shipments && shipments.map((shipment, i) => {
-          const originCoords = getCoords(shipment.origin);
-          const destCoords = getCoords(shipment.destination);
+  const renderShipmentRoutes = () => {
+    if (!shipments) return null;
+
+    return shipments.map((shipment, i) => {
+      const originCoords = getCoords(shipment.origin);
+      const routes = [];
+
+      // Handle multi-stop shipments
+      if (shipment.destinations && Array.isArray(shipment.destinations)) {
+        shipment.destinations.forEach((destination, destIndex) => {
+          const destCoords = getCoords(destination);
           
-          return (
+          // Determine color based on status
+          let strokeColor = "#10b981"; // default green
+          if (shipment.status === "Delayed") strokeColor = "#ef4444"; // red
+          else if (shipment.status === "Processing") strokeColor = "#f59e0b"; // yellow
+          else if (shipment.status === "Delivered") strokeColor = "#6b7280"; // gray
+          
+          routes.push(
             <Line
-              key={`shipment-${i}`}
+              key={`shipment-${i}-dest-${destIndex}`}
               from={originCoords}
               to={destCoords}
-              stroke={highlight?.shipment_id === shipment.shipment_id ? "#f87171" : "#10b981"}
+              stroke={highlight?.shipment_id === shipment.shipment_id ? "#f87171" : strokeColor}
               strokeWidth={highlight?.shipment_id === shipment.shipment_id ? 3 : 2}
               strokeDasharray={shipment.status === "Delayed" ? "5,5" : "none"}
               opacity={0.7}
+              onClick={() => handleShipmentClick(shipment)}
+              style={{ cursor: 'pointer' }}
             />
           );
-        })}
+          
+          // Add small circles at destination points for multi-stop routes
+          if (shipment.route_type !== "single") {
+            routes.push(
+              <Marker key={`stop-${i}-${destIndex}`} coordinates={destCoords}>
+                <circle
+                  r={2}
+                  fill={strokeColor}
+                  stroke="#fff"
+                  strokeWidth={1}
+                  opacity={0.8}
+                />
+              </Marker>
+            );
+          }
+        });
+      }
 
-        {/* Distribution Centers */}
-        {dcs && dcs.map(dc => (
-          <Marker 
-            key={dc.dc_id} 
-            coordinates={getCoords(dc.location)}
-            onClick={() => handleMarkerClick(dc, 'DistributionCenter')}
-            style={{ cursor: 'pointer' }}
-          >
-            <circle 
-              r={highlight?.dc_id === dc.dc_id ? 10 : 8} 
-              fill={highlight?.dc_id === dc.dc_id ? "#f59e0b" : "#2563eb"} 
-              stroke="#fff" 
-              strokeWidth={2}
-              style={{ cursor: 'pointer' }}
-            />
-            <text 
-              textAnchor="middle" 
-              y={-15} 
-              style={{ 
-                fontSize: highlight?.dc_id === dc.dc_id ? 12 : 10, 
-                fontWeight: 600,
-                fill: '#333',
-                pointerEvents: 'none'
-              }}
+      return routes;
+    });
+  };
+
+  const handleZoomIn = () => {
+    setZoom(Math.min(zoom * 1.5, 8));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(Math.max(zoom / 1.5, 1));
+  };
+
+  const handleReset = () => {
+    setZoom(1);
+    setCenter([0, 0]);
+  };
+
+  const getShipmentColor = (status) => {
+    switch (status) {
+      case "Delayed": return "#ef4444";
+      case "Processing": return "#f59e0b";
+      case "Delivered": return "#6b7280";
+      default: return "#10b981";
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <ComposableMap projection="geoAlbersUsa" width={900} height={500}>
+        <ZoomableGroup zoom={zoom} center={center}>
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map(geo => (
+                <Geography 
+                  key={geo.rsmKey} 
+                  geography={geo} 
+                  fill="#EAEAEC" 
+                  stroke="#D6D6DA" 
+                  strokeWidth={0.5}
+                />
+              ))
+            }
+          </Geographies>
+
+          {/* Shipment Routes (draw first so they appear behind markers) */}
+          {renderShipmentRoutes()}
+
+          {/* Distribution Centers */}
+          {dcs && dcs.map(dc => (
+            <Marker 
+              key={dc.dc_id} 
+              coordinates={getCoords(dc.location, dc.dc_id, 'DistributionCenter')}
             >
-              {dc.name.replace('Distribution Center ', 'DC ')}
-            </text>
-          </Marker>
-        ))}
-
-        {/* Stores */}
-        {stores && stores.map(store => (
-          <Marker 
-            key={store.store_id} 
-            coordinates={getCoords(store.location)}
-            onClick={() => handleMarkerClick(store, 'Store')}
-            style={{ cursor: 'pointer' }}
-          >
-            <circle 
-              r={highlight?.store_id === store.store_id ? 7 : 5} 
-              fill={highlight?.store_id === store.store_id ? "#10b981" : "#34d399"} 
-              stroke="#fff" 
-              strokeWidth={1.5}
-              style={{ cursor: 'pointer' }}
-            />
-            <text 
-              textAnchor="middle" 
-              y={-12} 
-              style={{ 
-                fontSize: highlight?.store_id === store.store_id ? 9 : 8,
-                fill: '#333',
-                pointerEvents: 'none'
-              }}
-            >
-              {store.store_type === 'urban' ? '🏪' : '🏬'}
-            </text>
-          </Marker>
-        ))}
-
-        {/* Trucks */}
-        {trucks && trucks.map(truck => (
-          <Marker 
-            key={truck.truck_id} 
-            coordinates={getCoords(truck.current_location)}
-            onClick={() => handleMarkerClick(truck, 'Truck')}
-            style={{ cursor: 'pointer' }}
-          >
-            <g>
-              <circle 
-                r={highlight?.truck_id === truck.truck_id ? 6 : 4} 
-                fill={getTruckColor(truck.status, highlight?.truck_id === truck.truck_id)} 
-                stroke="#fff" 
-                strokeWidth={1}
+              <g
+                onClick={() => handleMarkerClick(dc, 'DistributionCenter')}
                 style={{ cursor: 'pointer' }}
-              />
-              <text 
-                textAnchor="middle" 
-                y={2} 
-                style={{ 
-                  fontSize: highlight?.truck_id === truck.truck_id ? 10 : 8,
-                  fill: '#fff',
-                  fontWeight: 'bold',
-                  pointerEvents: 'none'
-                }}
               >
-                🚛
-              </text>
-            </g>
-          </Marker>
-        ))}
+                {/* Larger transparent click area */}
+                <circle 
+                  r={15} 
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                />
+                {/* Visible marker - Square for DCs */}
+                <rect
+                  x={-6}
+                  y={-6}
+                  width={12}
+                  height={12}
+                  fill={highlight?.dc_id === dc.dc_id ? "#f59e0b" : "#2563eb"} 
+                  stroke="#fff" 
+                  strokeWidth={2}
+                  style={{ cursor: 'pointer' }}
+                />
+              </g>
+            </Marker>
+          ))}
+
+          {/* Stores */}
+          {stores && stores.map(store => (
+            <Marker 
+              key={store.store_id} 
+              coordinates={getCoords(store.location, store.store_id, 'Store')}
+            >
+              <g
+                onClick={() => handleMarkerClick(store, 'Store')}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Larger transparent click area */}
+                <circle 
+                  r={12} 
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                />
+                {/* Visible marker - Circle for Stores */}
+                <circle 
+                  r={5} 
+                  fill={highlight?.store_id === store.store_id ? "#10b981" : "#34d399"} 
+                  stroke="#fff" 
+                  strokeWidth={1.5}
+                  style={{ cursor: 'pointer' }}
+                />
+              </g>
+            </Marker>
+          ))}
+
+          {/* Trucks */}
+          {trucks && trucks.map(truck => (
+            <Marker 
+              key={truck.truck_id} 
+              coordinates={getCoords(truck.current_location, truck.truck_id, 'Truck')}
+            >
+              <g
+                onClick={() => handleMarkerClick(truck, 'Truck')}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Larger transparent click area */}
+                <circle 
+                  r={10} 
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                />
+                {/* Visible marker - Diamond for Trucks */}
+                <polygon
+                  points="0,-4 4,0 0,4 -4,0"
+                  fill={getTruckColor(truck.status, highlight?.truck_id === truck.truck_id)} 
+                  stroke="#fff" 
+                  strokeWidth={1}
+                  style={{ cursor: 'pointer' }}
+                />
+              </g>
+            </Marker>
+          ))}
+        </ZoomableGroup>
       </ComposableMap>
+
+      {/* Zoom Controls */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '5px'
+      }}>
+        <button 
+          onClick={handleZoomIn}
+          style={{
+            width: '30px',
+            height: '30px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          +
+        </button>
+        <button 
+          onClick={handleZoomOut}
+          style={{
+            width: '30px',
+            height: '30px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          -
+        </button>
+        <button 
+          onClick={handleReset}
+          style={{
+            width: '30px',
+            height: '30px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          ⌂
+        </button>
+      </div>
 
       {/* Legend */}
       <div style={{
@@ -153,9 +306,11 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
         fontSize: '12px',
         minWidth: '200px'
       }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Legend</div>
+        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+          Legend (Zoom: {zoom.toFixed(1)}x)
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: '#2563eb', borderRadius: '50%', marginRight: '8px' }}></div>
+          <div style={{ width: '12px', height: '12px', backgroundColor: '#2563eb', marginRight: '8px' }}></div>
           Distribution Centers
         </div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
@@ -163,20 +318,28 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
           Stores
         </div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: '#22c55e', borderRadius: '50%', marginRight: '8px' }}></div>
-          Trucks (Active)
+          <div style={{ width: '12px', height: '6px', backgroundColor: '#22c55e', transform: 'rotate(45deg)', marginRight: '8px' }}></div>
+          Trucks
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: '#ef4444', borderRadius: '50%', marginRight: '8px' }}></div>
-          Trucks (Delayed)
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+        <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '11px' }}>Shipment Routes:</div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
           <div style={{ width: '20px', height: '2px', backgroundColor: '#10b981', marginRight: '8px' }}></div>
-          Active Shipments
+          Active ({shipments?.filter(s => s.status === "In Transit").length || 0})
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
+          <div style={{ width: '20px', height: '2px', backgroundColor: '#ef4444', borderStyle: 'dashed', borderWidth: '1px 0', marginRight: '8px' }}></div>
+          Delayed ({shipments?.filter(s => s.status === "Delayed").length || 0})
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
+          <div style={{ width: '20px', height: '2px', backgroundColor: '#f59e0b', marginRight: '8px' }}></div>
+          Processing ({shipments?.filter(s => s.status === "Processing").length || 0})
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ width: '20px', height: '2px', backgroundColor: '#10b981', backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, white 2px, white 4px)', marginRight: '8px' }}></div>
-          Delayed Shipments
+          <div style={{ width: '20px', height: '2px', backgroundColor: '#6b7280', marginRight: '8px' }}></div>
+          Delivered ({shipments?.filter(s => s.status === "Delivered").length || 0})
+        </div>
+        <div style={{ marginTop: '6px', fontSize: '10px', color: '#666' }}>
+          Total Shipments: {shipments?.length || 0}
         </div>
       </div>
 
@@ -191,7 +354,7 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           minWidth: '250px',
-          maxWidth: '350px'
+          maxWidth: '400px'
         }}>
           <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
             {highlight.entityType}: {highlight.name || highlight.truck_id || highlight.shipment_id}
@@ -218,6 +381,27 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
                 <div><strong>Status:</strong> {highlight.status}</div>
                 <div><strong>Location:</strong> {highlight.current_location}</div>
                 <div><strong>Route:</strong> {highlight.route_id}</div>
+              </>
+            )}
+            {highlight.entityType === 'Shipment' && (
+              <>
+                <div><strong>Carrier:</strong> {highlight.carrier}</div>
+                <div><strong>Status:</strong> {highlight.status}</div>
+                <div><strong>Mode:</strong> {highlight.mode}</div>
+                <div><strong>ETA:</strong> {highlight.eta}</div>
+                <div><strong>Origin:</strong> {highlight.origin}</div>
+                <div><strong>Route Type:</strong> {highlight.route_type}</div>
+                <div><strong>Stops:</strong> {highlight.stops_count}</div>
+                {highlight.destinations && (
+                  <div style={{ marginTop: '8px' }}>
+                    <strong>Destinations:</strong>
+                    <div style={{ marginLeft: '8px', fontSize: '11px' }}>
+                      {highlight.destinations.map((dest, i) => (
+                        <div key={i}>• {dest}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
