@@ -312,7 +312,7 @@ export default function MapView({ dcs, stores, shipments, trucks, highlight, onE
         minWidth: '200px'
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-          Legend (Zoom: {zoom.toFixed(1)}x)
+          Legend (Zoom: {typeof zoom === 'number' ? zoom.toFixed(1) : '1.0'}x)
         </div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
           <div style={{ width: '12px', height: '12px', backgroundColor: '#2563eb', marginRight: '8px' }}></div>
