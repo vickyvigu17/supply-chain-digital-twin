@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import './AIComponents.css';
 
 const AIInsightsPanel = () => {
-  const [insights, setInsights] = useState(null);
+  const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const fetchInsights = async () => {
     setLoading(true);
@@ -13,85 +13,48 @@ const AIInsightsPanel = () => {
       const response = await fetch('/api/ai/insights');
       const data = await response.json();
       
-      setInsights({
-        content: data.insights || data.error || 'No insights available',
-        provider: data.provider,
-        model: data.model,
-        success: data.success,
-        timestamp: data.timestamp
-      });
-      setLastUpdated(new Date().toLocaleTimeString());
-      
+      if (data.error) {
+        setInsights([{ content: `❌ Error: ${data.error}`, type: 'error' }]);
+      } else {
+        setInsights(data.insights || []);
+        setLastUpdate(new Date().toLocaleTimeString());
+      }
     } catch (error) {
-      setInsights({
-        content: `Error loading insights: ${error.message}`,
-        provider: 'Error',
-        model: 'Error',
-        success: false,
-        timestamp: new Date().toISOString()
-      });
+      setInsights([{ content: `❌ Network error: ${error.message}`, type: 'error' }]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    // Load insights on component mount
     fetchInsights();
-    
-    // Auto-refresh every 5 minutes if enabled
+  }, []);
+
+  useEffect(() => {
     let interval;
     if (autoRefresh) {
-      interval = setInterval(fetchInsights, 5 * 60 * 1000);
+      interval = setInterval(fetchInsights, 30000); // Refresh every 30 seconds
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  const formatInsights = (content) => {
-    if (!content) return [];
-    
-    // Split by lines and filter out empty ones
-    const lines = content.split('\n').filter(line => line.trim());
-    
-    return lines.map((line, index) => {
-      // Detect insight type by emoji or content
-      let type = 'neutral';
-      if (line.includes('⚠️') || line.includes('🔴') || line.toLowerCase().includes('delayed') || line.toLowerCase().includes('issue')) {
-        type = 'warning';
-      } else if (line.includes('✅') || line.includes('📊') || line.toLowerCase().includes('stable') || line.toLowerCase().includes('excellent')) {
-        type = 'success';
-      } else if (line.includes('🌦️') || line.includes('🚛')) {
-        type = 'info';
-      }
-      
-      return {
-        id: index,
-        content: line,
-        type: type
-      };
-    });
+  const getInsightIcon = (index) => {
+    const icons = ['🔍', '💡', '⚠️', '🎯', '📊'];
+    return icons[index % icons.length];
   };
-
-  const insightsList = insights ? formatInsights(insights.content) : [];
 
   return (
     <div className="ai-insights-panel">
       <div className="insights-header">
-        <div className="header-left">
-          <h3>🧠 AI Insights & Analytics</h3>
-          <p>Smart recommendations from your supply chain data</p>
-        </div>
-        <div className="header-controls">
-          <button
-            onClick={fetchInsights}
-            className="refresh-btn"
+        <h3>🧠 AI-Powered Insights</h3>
+        <div className="insights-controls">
+          <button 
+            onClick={fetchInsights} 
             disabled={loading}
+            className="refresh-btn"
           >
-            {loading ? '🔄' : '↻'}
+            {loading ? '🔄' : '🔄 Refresh'}
           </button>
-          <label className="auto-refresh-toggle">
+          <label className="auto-refresh">
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -102,60 +65,52 @@ const AIInsightsPanel = () => {
         </div>
       </div>
 
-      {loading && !insights && (
-        <div className="loading-state">
-          <div className="loading-spinner">🔍</div>
-          <p>Analyzing supply chain data...</p>
+      {lastUpdate && (
+        <div className="last-update">
+          Last updated: {lastUpdate}
         </div>
       )}
 
-      {insights && (
-        <div className="insights-content">
-          <div className="insights-meta">
-            <span className="provider-tag">{insights.provider}</span>
-            {lastUpdated && <span className="last-updated">Updated: {lastUpdated}</span>}
-          </div>
-
-          {insightsList.length > 0 ? (
-            <div className="insights-list">
-              {insightsList.map((insight) => (
-                <div key={insight.id} className={`insight-item ${insight.type}`}>
-                  <div className="insight-content">{insight.content}</div>
+      {loading && insights.length === 0 ? (
+        <div className="loading-insights">
+          <div className="loading-spinner">🤖</div>
+          <p>AI is analyzing your supply chain...</p>
+        </div>
+      ) : (
+        <div className="insights-list">
+          {insights.map((insight, index) => (
+            <div 
+              key={index} 
+              className={`insight-card ${insight.type === 'error' ? 'error' : ''}`}
+            >
+              <div className="insight-header">
+                <span className="insight-icon">{getInsightIcon(index)}</span>
+                <span className="insight-title">
+                  {index === 0 && 'Performance Issues'}
+                  {index === 1 && 'Optimization Opportunities'}
+                  {index === 2 && 'Concerning Patterns'}
+                  {index === 3 && 'Management Focus'}
+                  {index > 3 && 'Additional Insights'}
+                </span>
+              </div>
+              <div className="insight-content">
+                {insight.content}
+              </div>
+              {insight.provider && (
+                <div className="insight-meta">
+                  Generated by {insight.provider} • {insight.model}
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <div className="no-insights">
-              <p>No specific insights available at the moment.</p>
-              <button onClick={fetchInsights} className="retry-btn">
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {!insights.success && (
-            <div className="insights-error">
-              <p>⚠️ Could not generate AI insights. Showing fallback analysis.</p>
-            </div>
-          )}
+          ))}
         </div>
       )}
 
-      <div className="insights-actions">
-        <button 
-          onClick={() => window.open('/analytics', '_blank')}
-          className="detailed-analytics-btn"
-        >
-          📊 View Detailed Analytics
-        </button>
-        <button 
-          onClick={fetchInsights}
-          className="generate-report-btn"
-          disabled={loading}
-        >
-          📋 Refresh Insights
-        </button>
-      </div>
+      {insights.length === 0 && !loading && (
+        <div className="no-insights">
+          <p>🤖 Click refresh to generate AI insights about your supply chain.</p>
+        </div>
+      )}
     </div>
   );
 };

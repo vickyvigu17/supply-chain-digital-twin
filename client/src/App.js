@@ -22,6 +22,7 @@ function App() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [highlightedEntity, setHighlightedEntity] = useState(null);
   const [activeTab, setActiveTab] = useState("map");
+  const [showAIQuery, setShowAIQuery] = useState(false);
 
 
 
@@ -283,6 +284,13 @@ function App() {
                 <option value="active_shipments">Active Shipments</option>
                 <option value="weather_impacted">Weather Impacted</option>
               </select>
+              <button 
+                onClick={() => setShowAIQuery(true)}
+                className="ai-quick-btn"
+                title="Ask AI about your supply chain"
+              >
+                🤖 Ask AI
+              </button>
             </div>
           </div>
 
@@ -301,6 +309,12 @@ function App() {
             {renderEventsPanel()}
             {renderWeatherPanel()}
           </div>
+          
+          {showAIQuery && (
+            <div className="ai-overlay">
+              <AIQueryInterface onClose={() => setShowAIQuery(false)} />
+            </div>
+          )}
         </div>
       )}
 

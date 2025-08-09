@@ -1,132 +1,121 @@
 import React, { useState } from 'react';
-import './AIComponents.css';
 
-const AIQueryInterface = () => {
+const AIQueryInterface = ({ onClose }) => {
   const [query, setQuery] = useState('');
-  const [response, setResponse] = useState(null);
+  const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState([]);
+  const [currentProvider, setCurrentProvider] = useState('huggingface');
 
-  const sampleQueries = [
-    "How many shipments are delayed?",
-    "Show me trucks in the West region",
-    "What stores have issues?", 
-    "Which areas have weather alerts?",
-    "Show shipments going to Chicago"
-  ];
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleQuery = async () => {
     if (!query.trim()) return;
-
+    
     setLoading(true);
     try {
       const response = await fetch('/api/ai/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: query.trim() })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
       });
-
+      
       const data = await response.json();
       
-      const newEntry = {
-        query: query.trim(),
-        response: data.response || data.error || 'No response received',
-        success: data.success,
-        provider: data.provider,
-        timestamp: new Date().toLocaleTimeString()
-      };
-
-      setResponse(newEntry);
-      setHistory(prev => [newEntry, ...prev.slice(0, 4)]); // Keep last 5
-      setQuery('');
-      
+      if (data.error) {
+        setResponse(`❌ Error: ${data.error}`);
+      } else {
+        setResponse(data.response);
+      }
     } catch (error) {
-      const errorEntry = {
-        query: query.trim(),
-        response: `Error: ${error.message}`,
-        success: false,
-        provider: 'Error',
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setResponse(errorEntry);
-      setHistory(prev => [errorEntry, ...prev.slice(0, 4)]);
+      setResponse(`❌ Network error: ${error.message}`);
     }
-    
     setLoading(false);
   };
 
-  const handleSampleQuery = (sampleQuery) => {
-    setQuery(sampleQuery);
+  const switchProvider = async (provider) => {
+    try {
+      const response = await fetch('/api/ai/switch-provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider })
+      });
+      
+      const data = await response.json();
+      if (!data.error) {
+        setCurrentProvider(provider);
+        setResponse(`🔄 Switched to ${provider.toUpperCase()}`);
+      }
+    } catch (error) {
+      setResponse(`❌ Provider switch failed: ${error.message}`);
+    }
   };
+
+  const exampleQueries = [
+    "What are the main issues with our shipments?",
+    "Which routes are causing the most delays?",
+    "How can we optimize our supply chain?",
+    "What regions have the most problems?",
+    "Show me performance insights"
+  ];
 
   return (
     <div className="ai-query-interface">
       <div className="ai-header">
         <h3>🤖 AI Supply Chain Assistant</h3>
-        <p>Ask natural language questions about your supply chain data</p>
+        <button onClick={onClose} className="close-btn">×</button>
+      </div>
+      
+      <div className="ai-provider-switch">
+        <label>AI Provider:</label>
+        <div className="provider-buttons">
+          {['huggingface', 'openai', 'gemini'].map(provider => (
+            <button
+              key={provider}
+              className={`provider-btn ${currentProvider === provider ? 'active' : ''}`}
+              onClick={() => switchProvider(provider)}
+            >
+              {provider.toUpperCase()}
+              {provider === 'huggingface' && ' (FREE)'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="query-form">
-        <div className="query-input-group">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask me anything about your supply chain..."
-            className="query-input"
-            disabled={loading}
-          />
-          <button 
-            type="submit" 
-            className="query-button"
-            disabled={loading || !query.trim()}
-          >
-            {loading ? '🔍' : '🚀'}
-          </button>
-        </div>
-      </form>
+      <div className="query-section">
+        <textarea
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Ask me anything about your supply chain..."
+          className="query-input"
+          rows={3}
+        />
+        
+        <button 
+          onClick={handleQuery} 
+          disabled={loading || !query.trim()}
+          className="query-btn"
+        >
+          {loading ? '🔍 Thinking...' : '🔍 Ask AI'}
+        </button>
+      </div>
 
-      <div className="sample-queries">
-        <span className="sample-label">Try these:</span>
-        {sampleQueries.map((sample, index) => (
+      <div className="example-queries">
+        <p>💡 Try these examples:</p>
+        {exampleQueries.map((example, index) => (
           <button
             key={index}
-            onClick={() => handleSampleQuery(sample)}
-            className="sample-query-btn"
-            disabled={loading}
+            className="example-btn"
+            onClick={() => setQuery(example)}
           >
-            {sample}
+            {example}
           </button>
         ))}
       </div>
 
       {response && (
-        <div className={`ai-response ${response.success ? 'success' : 'error'}`}>
-          <div className="response-header">
-            <strong>Q:</strong> {response.query}
-            <span className="response-meta">
-              {response.provider} • {response.timestamp}
-            </span>
-          </div>
+        <div className="ai-response">
+          <h4>🤖 AI Response:</h4>
           <div className="response-content">
-            <strong>A:</strong> {response.response}
+            {response}
           </div>
-        </div>
-      )}
-
-      {history.length > 0 && (
-        <div className="query-history">
-          <h4>Recent Queries</h4>
-          {history.map((entry, index) => (
-            <div key={index} className={`history-item ${entry.success ? 'success' : 'error'}`}>
-              <div className="history-query">{entry.query}</div>
-              <div className="history-response">{entry.response}</div>
-              <div className="history-meta">{entry.provider} • {entry.timestamp}</div>
-            </div>
-          ))}
         </div>
       )}
     </div>
