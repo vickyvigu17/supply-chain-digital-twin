@@ -175,6 +175,13 @@ code {
   padding: 0 24px;
 }
 
+/* AI View */
+.ai-view {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 /* Summary Cards */
 .summary-grid {
   display: grid;

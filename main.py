@@ -8,6 +8,7 @@ import datetime
 from typing import List, Dict, Any
 from dataclasses import dataclass, asdict
 import json
+from ai_services import ai_service
 
 app = FastAPI()
 
@@ -480,6 +481,94 @@ async def unique_test():
         "shipments_in_data": len(supply_chain_data["shipments"]),
         "proof_this_is_new_server": "IF_YOU_SEE_THIS_YOUR_SERVER_IS_LIVE"
     }
+
+@app.post("/api/ai/query")
+async def ai_query(request: dict):
+    """Natural language query endpoint"""
+    try:
+        query = request.get("query", "")
+        if not query:
+            raise HTTPException(status_code=400, detail="Query is required")
+        
+        # Convert dataclass objects to dicts for AI processing
+        context = {}
+        for key, items in supply_chain_data.items():
+            context[key] = [asdict(item) if hasattr(item, '__dict__') else item for item in items]
+        
+        response = ai_service.query_data(query, context)
+        
+        return {
+            "query": query,
+            "response": response.content,
+            "provider": response.provider,
+            "model": response.model,
+            "success": response.success,
+            "error": response.error
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI query failed: {str(e)}")
+
+@app.get("/api/ai/insights")
+async def ai_insights():
+    """Generate AI-powered insights about supply chain data"""
+    try:
+        # Convert dataclass objects to dicts for AI processing
+        data = {}
+        for key, items in supply_chain_data.items():
+            data[key] = [asdict(item) if hasattr(item, '__dict__') else item for item in items]
+        
+        response = ai_service.generate_insights(data)
+        
+        return {
+            "insights": response.content,
+            "provider": response.provider,
+            "model": response.model,
+            "success": response.success,
+            "error": response.error,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI insights failed: {str(e)}")
+
+@app.get("/api/ai/providers")
+async def ai_providers():
+    """Get status of all AI providers"""
+    try:
+        status = ai_service.get_provider_status()
+        current_provider = ai_service.primary_provider
+        
+        return {
+            "current_provider": current_provider,
+            "providers": status,
+            "available_providers": [name for name, available in status.items() if available]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Provider status failed: {str(e)}")
+
+@app.post("/api/ai/switch-provider")
+async def switch_ai_provider(request: dict):
+    """Switch AI provider"""
+    try:
+        provider = request.get("provider", "")
+        if not provider:
+            raise HTTPException(status_code=400, detail="Provider name is required")
+        
+        success = ai_service.switch_provider(provider)
+        
+        if success:
+            return {
+                "message": f"Switched to {provider} provider",
+                "current_provider": ai_service.primary_provider,
+                "success": True
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Provider switch failed: {str(e)}")
 
 # Catch-all for React Router (MUST BE LAST!)
 @app.get("/{full_path:path}")

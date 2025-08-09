@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import MapView from "./MapView";
+import AIQueryInterface from "./AIQueryInterface";
+import AIInsightsPanel from "./AIInsightsPanel";
 import "./index.css";
 
 function App() {
@@ -257,6 +259,12 @@ function App() {
         >
           Analytics
         </button>
+        <button 
+          className={activeTab === "ai" ? "nav-button active" : "nav-button"}
+          onClick={() => setActiveTab("ai")}
+        >
+          🤖 AI Assistant
+        </button>
       </nav>
 
       {activeTab === "map" && (
@@ -362,6 +370,13 @@ function App() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === "ai" && (
+        <div className="ai-view">
+          <AIQueryInterface />
+          <AIInsightsPanel />
         </div>
       )}
     </div>
