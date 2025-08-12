@@ -357,9 +357,15 @@ function SupplyChainDashboard() {
               {events.map(event => (
                 <div key={event.event_id} className={`p-4 rounded-lg border ${event.resolution_status.toLowerCase() === 'open' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-semibold text-gray-900">{event.event_type}</h4>
                       <p className="text-sm text-gray-600">Entity: {event.impacted_entity}</p>
+                      {event.source && event.destination && (
+                        <p className="text-sm text-gray-600">Route: {event.source} → {event.destination}</p>
+                      )}
+                      {event.description && (
+                        <p className="text-sm text-gray-600">{event.description}</p>
+                      )}
                       <p className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleString()}</p>
                     </div>
                     <Badge variant={event.resolution_status === 'Open' ? 'destructive' : 'default'}>
