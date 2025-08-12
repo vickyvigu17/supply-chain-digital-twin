@@ -147,8 +147,9 @@ async def get_stores():
 async def get_events():
     """Get events"""
     return [
-        {"event_id": "EVT001", "event_type": "Delay", "impacted_entity": "Truck:TRK001", "timestamp": "2024-01-10 10:00:00", "resolution_status": "Open"},
-        {"event_id": "EVT002", "event_type": "Shortage", "impacted_entity": "Store:ST001", "timestamp": "2024-01-09 15:30:00", "resolution_status": "In Progress"}
+        {"event_id": "EVT001", "event_type": "Delay", "impacted_entity": "Truck:TRK001", "source": "Chicago, IL", "destination": "Miami, FL", "timestamp": "2024-01-10 10:00:00", "resolution_status": "Open", "description": "Weather-related delay in transit"},
+        {"event_id": "EVT002", "event_type": "Shortage", "impacted_entity": "Store:ST001", "source": "Distribution Center DC001", "destination": "San Francisco, CA", "timestamp": "2024-01-09 15:30:00", "resolution_status": "In Progress", "description": "Inventory shortage affecting store operations"}
+        {"event_id": "EVT003", "event_type": "Route Change", "impacted_entity": "Truck:TRK002", "source": "Atlanta, GA", "destination": "Seattle, WA", "timestamp": "2024-01-10 08:15:00", "resolution_status": "Resolved", "description": "Route optimized due to traffic conditions"}
     ]
 
 @app.get("/api/supply-chain/weatheralert")
