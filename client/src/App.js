@@ -448,22 +448,39 @@ function AIChat() {
     setIsLoading(true);
     
     try {
+      console.log('Sending message to AI agent:', inputMessage);
+      
       const response = await apiClient.request('POST', '/api/chat/messages', {
         role: "user",
         content: inputMessage,
         userId: "demo-user"
       });
       
+      console.log('AI agent response:', response);
+      
       // Fetch updated messages
       const updatedMessages = await apiClient.request('GET', '/api/chat/messages');
+      console.log('Updated messages:', updatedMessages);
       setMessages(updatedMessages);
     } catch (error) {
       console.error('Failed to send message:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Sorry, I'm having trouble connecting right now. Please try again.";
+      
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage = "Cannot connect to the AI agent. Please check if the server is running.";
+      } else if (error.message.includes('404')) {
+        errorMessage = "AI agent endpoint not found. Please check the server configuration.";
+      } else if (error.message.includes('500')) {
+        errorMessage = "AI agent server error. Please try again later.";
+      }
+      
       // Add error message
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I'm having trouble connecting right now. Please try again.",
+        content: errorMessage,
         timestamp: new Date().toISOString(),
         userId: "demo-user"
       }]);
