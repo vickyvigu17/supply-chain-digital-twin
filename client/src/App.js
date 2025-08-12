@@ -3,51 +3,51 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { apiRequest } from "./lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Toaster } from "@/components/ui/toaster";
-import type { SupplyChainSummary, Shipment, Truck, DistributionCenter, Store, Event, WeatherAlert, ChatMessage } from "@shared/schema";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Skeleton } from "./components/ui/skeleton";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { Toaster } from "./components/ui/toaster";
+
 
 function SupplyChainDashboard() {
   const [selectedFilter, setSelectedFilter] = useState("all");
 
   // Fetch supply chain summary
-  const { data: summary, isLoading: summaryLoading } = useQuery<SupplyChainSummary>({
+  const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["/api/supply-chain/summary"],
   });
 
   // Fetch supply chain data
-  const { data: shipments = [], isLoading: shipmentsLoading } = useQuery<Shipment[]>({
+  const { data: shipments = [], isLoading: shipmentsLoading } = useQuery({
     queryKey: ["/api/supply-chain/shipment"],
   });
 
-  const { data: trucks = [], isLoading: trucksLoading } = useQuery<Truck[]>({
+  const { data: trucks = [], isLoading: trucksLoading } = useQuery({
     queryKey: ["/api/supply-chain/truck"],
   });
 
-  const { data: distributionCenters = [], isLoading: dcsLoading } = useQuery<DistributionCenter[]>({
+  const { data: distributionCenters = [], isLoading: dcsLoading } = useQuery({
     queryKey: ["/api/supply-chain/distributioncenter"],
   });
 
-  const { data: stores = [], isLoading: storesLoading } = useQuery<Store[]>({
+  const { data: stores = [], isLoading: storesLoading } = useQuery({
     queryKey: ["/api/supply-chain/store"],
   });
 
-  const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
+  const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["/api/supply-chain/event"],
   });
 
-  const { data: weatherAlerts = [], isLoading: weatherLoading } = useQuery<WeatherAlert[]>({
+  const { data: weatherAlerts = [], isLoading: weatherLoading } = useQuery({
     queryKey: ["/api/supply-chain/weatheralert"],
   });
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status) => {
     switch (status.toLowerCase()) {
       case "in transit":
       case "operational":
@@ -62,7 +62,7 @@ function SupplyChainDashboard() {
     }
   };
 
-  const getSeverityBadgeVariant = (severity: string) => {
+  const getSeverityBadgeVariant = (severity) => {
     switch (severity.toLowerCase()) {
       case "high":
       case "critical":
@@ -393,14 +393,14 @@ function AIChat() {
   };
 
   // Fetch chat messages
-  const { data: messages = [] } = useQuery<ChatMessage[]>({
+  const { data: messages = [] } = useQuery({
     queryKey: ["/api/chat/messages"],
     enabled: isOpen,
   });
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (content) => {
       return apiRequest("POST", "/api/chat/messages", {
         role: "user",
         content,
@@ -424,14 +424,14 @@ function AIChat() {
     sendMessageMutation.mutate(inputMessage);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  const formatMessageContent = (content: string) => {
+  const formatMessageContent = (content) => {
     return content.split('\n').map((line, index) => {
       if (line.startsWith('• ') || line.startsWith('- ')) {
         return <div key={index} className="ml-4">{line}</div>;
