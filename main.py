@@ -19,12 +19,14 @@ class ChatRequest(BaseModel):
 
 app = FastAPI()
 
+# FIXED CORS Configuration - This will solve your CORS issues
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # Set to False to avoid CORS issues
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Global chat messages storage
@@ -260,43 +262,121 @@ async def create_chat_message(request: ChatRequest):
 async def get_summary():
     """Get supply chain summary"""
     return {
-        "total_shipments": 45,
-        "active_trucks": 25,
-        "delayed_shipments": 3,
-        "weather_alerts": 5,
-        "distribution_centers": 8
+        "distribution_centers": 8,
+        "stores": 15,
+        "trucks": 40,
+        "shipments": 45
     }
 
 @app.get("/api/supply-chain/shipment")
 async def get_shipments():
-    """Get shipments"""
+    """Get shipments data"""
     return [
-        {"shipment_id": "SH0001", "origin": "Cincinnati, OH", "destination": "Miami, FL", "status": "In Transit", "eta": "2024-01-15"},
-        {"shipment_id": "SH0002", "origin": "Dallas, TX", "destination": "Seattle, WA", "status": "Delayed", "eta": "2024-01-18"}
+        {
+            "shipment_id": "SHP001",
+            "status": "In Transit",
+            "origin": "Chicago, IL",
+            "destination": "Miami, FL",
+            "carrier": "FastFreight Inc",
+            "eta": "2024-01-12 14:00:00"
+        },
+        {
+            "shipment_id": "SHP002",
+            "status": "Delayed",
+            "origin": "Atlanta, GA",
+            "destination": "Seattle, WA",
+            "carrier": "QuickShip Co",
+            "eta": "2024-01-13 09:00:00"
+        },
+        {
+            "shipment_id": "SHP003",
+            "status": "Processing",
+            "origin": "Dallas, TX",
+            "destination": "Denver, CO",
+            "carrier": "Reliable Logistics",
+            "eta": "2024-01-12 16:00:00"
+        }
     ]
 
 @app.get("/api/supply-chain/truck")
 async def get_trucks():
-    """Get trucks"""
+    """Get trucks data"""
     return [
-        {"truck_id": "TRK001", "location": "Chicago, IL", "status": "Delayed", "current_load": "Electronics"},
-        {"truck_id": "TRK002", "location": "Atlanta, GA", "status": "Delayed", "current_load": "Clothing"}
+        {
+            "truck_id": "TRK001",
+            "carrier": "FastFreight Inc",
+            "status": "In Transit",
+            "current_location": "Chicago, IL",
+            "route_id": "RT001"
+        },
+        {
+            "truck_id": "TRK002",
+            "carrier": "QuickShip Co",
+            "status": "Delayed",
+            "current_location": "Atlanta, GA",
+            "route_id": "RT002"
+        },
+        {
+            "truck_id": "TRK003",
+            "carrier": "Reliable Logistics",
+            "status": "Loading",
+            "current_location": "Dallas, TX",
+            "route_id": "RT003"
+        }
     ]
 
 @app.get("/api/supply-chain/distributioncenter")
 async def get_distribution_centers():
-    """Get distribution centers"""
+    """Get distribution centers data"""
     return [
-        {"center_id": "DC001", "name": "Northeast Hub", "location": "New York, NY", "status": "Operational"},
-        {"center_id": "DC002", "name": "Midwest Hub", "location": "Chicago, IL", "status": "Operational"}
+        {
+            "dc_id": "DC001",
+            "name": "Chicago Hub",
+            "location": "Chicago, IL",
+            "status": "Operational",
+            "capacity": 1000000
+        },
+        {
+            "dc_id": "DC002",
+            "name": "Atlanta Center",
+            "location": "Atlanta, GA",
+            "status": "Operational",
+            "capacity": 800000
+        },
+        {
+            "dc_id": "DC003",
+            "name": "Dallas Facility",
+            "location": "Dallas, TX",
+            "status": "Operational",
+            "capacity": 1200000
+        }
     ]
 
 @app.get("/api/supply-chain/store")
 async def get_stores():
-    """Get stores"""
+    """Get stores data"""
     return [
-        {"store_id": "ST001", "name": "Store 1 San Francisco", "location": "San Francisco, CA", "region": "West", "store_type": "urban"},
-        {"store_id": "ST002", "name": "Store 2 Miami", "location": "Miami, FL", "region": "South", "store_type": "urban"}
+        {
+            "store_id": "ST001",
+            "name": "Downtown Miami",
+            "location": "Miami, FL",
+            "status": "Operational",
+            "inventory_level": 85
+        },
+        {
+            "store_id": "ST002",
+            "name": "Seattle Central",
+            "location": "Seattle, WA",
+            "status": "Operational",
+            "inventory_level": 92
+        },
+        {
+            "store_id": "ST003",
+            "name": "Denver Metro",
+            "location": "Denver, CO",
+            "status": "Operational",
+            "inventory_level": 78
+        }
     ]
 
 @app.get("/api/supply-chain/event")
@@ -304,32 +384,32 @@ async def get_events():
     """Get events with source and destination"""
     return [
         {
-            "event_id": "EVT001", 
-            "event_type": "Delay", 
-            "impacted_entity": "Truck:TRK001", 
+            "event_id": "EVT001",
+            "event_type": "Delay",
+            "impacted_entity": "Truck:TRK001",
             "source": "Chicago, IL",
             "destination": "Miami, FL",
-            "timestamp": "2024-01-10 10:00:00", 
+            "timestamp": "2024-01-10 10:00:00",
             "resolution_status": "Open",
             "description": "Weather-related delay in transit"
         },
         {
-            "event_id": "EVT002", 
-            "event_type": "Shortage", 
-            "impacted_entity": "Store:ST001", 
+            "event_id": "EVT002",
+            "event_type": "Shortage",
+            "impacted_entity": "Store:ST001",
             "source": "Distribution Center DC001",
             "destination": "San Francisco, CA",
-            "timestamp": "2024-01-09 15:30:00", 
+            "timestamp": "2024-01-09 15:30:00",
             "resolution_status": "In Progress",
             "description": "Inventory shortage affecting store operations"
         },
         {
-            "event_id": "EVT003", 
-            "event_type": "Route Change", 
-            "impacted_entity": "Truck:TRK002", 
+            "event_id": "EVT003",
+            "event_type": "Route Change",
+            "impacted_entity": "Truck:TRK002",
             "source": "Atlanta, GA",
             "destination": "Seattle, WA",
-            "timestamp": "2024-01-10 08:15:00", 
+            "timestamp": "2024-01-10 08:15:00",
             "resolution_status": "Resolved",
             "description": "Route optimized due to traffic conditions"
         }
@@ -337,10 +417,22 @@ async def get_events():
 
 @app.get("/api/supply-chain/weatheralert")
 async def get_weather_alerts():
-    """Get weather alerts"""
+    """Get weather alerts data"""
     return [
-        {"alert_id": "WA001", "alert_type": "Storm", "region": "Northeast", "severity": "High", "date": "2024-01-10"},
-        {"alert_id": "WA002", "alert_type": "Snow", "region": "Midwest", "severity": "Medium", "date": "2024-01-09"}
+        {
+            "alert_id": "WA001",
+            "alert_type": "Severe Storm",
+            "region": "Midwest",
+            "date": "2024-01-10",
+            "severity": "High"
+        },
+        {
+            "alert_id": "WA002",
+            "alert_type": "High Wind",
+            "region": "East Coast",
+            "date": "2024-01-10",
+            "severity": "Medium"
+        }
     ]
 
 @app.get("/health")
