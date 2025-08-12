@@ -1,53 +1,92 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./lib/queryClient";
-import { apiRequest } from "./lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Toaster } from "@/components/ui/toaster";
-import type { SupplyChainSummary, Shipment, Truck, DistributionCenter, Store, Event, WeatherAlert, ChatMessage } from "@shared/schema";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Badge } from "./components/ui/badge";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Skeleton } from "./components/ui/skeleton";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { Toaster } from "./components/ui/toaster";
+
+// Simple API client
+const apiClient = {
+  async request(method, endpoint, data = null) {
+    try {
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+      
+      if (data) {
+        options.body = JSON.stringify(data);
+      }
+      
+      const response = await fetch(endpoint, options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+};
 
 function SupplyChainDashboard() {
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [summary, setSummary] = useState(null);
+  const [shipments, setShipments] = useState([]);
+  const [trucks, setTrucks] = useState([]);
+  const [distributionCenters, setDistributionCenters] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [weatherAlerts, setWeatherAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch supply chain summary
-  const { data: summary, isLoading: summaryLoading } = useQuery<SupplyChainSummary>({
-    queryKey: ["/api/supply-chain/summary"],
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [
+          summaryData,
+          shipmentsData,
+          trucksData,
+          dcsData,
+          storesData,
+          eventsData,
+          weatherData
+        ] = await Promise.all([
+          apiClient.request('GET', '/api/supply-chain/summary'),
+          apiClient.request('GET', '/api/supply-chain/shipment'),
+          apiClient.request('GET', '/api/supply-chain/truck'),
+          apiClient.request('GET', '/api/supply-chain/distributioncenter'),
+          apiClient.request('GET', '/api/supply-chain/store'),
+          apiClient.request('GET', '/api/supply-chain/event'),
+          apiClient.request('GET', '/api/supply-chain/weatheralert')
+        ]);
 
-  // Fetch supply chain data
-  const { data: shipments = [], isLoading: shipmentsLoading } = useQuery<Shipment[]>({
-    queryKey: ["/api/supply-chain/shipment"],
-  });
+        setSummary(summaryData);
+        setShipments(shipmentsData);
+        setTrucks(trucksData);
+        setDistributionCenters(dcsData);
+        setStores(storesData);
+        setEvents(eventsData);
+        setWeatherAlerts(weatherData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const { data: trucks = [], isLoading: trucksLoading } = useQuery<Truck[]>({
-    queryKey: ["/api/supply-chain/truck"],
-  });
+    fetchData();
+  }, []);
 
-  const { data: distributionCenters = [], isLoading: dcsLoading } = useQuery<DistributionCenter[]>({
-    queryKey: ["/api/supply-chain/distributioncenter"],
-  });
-
-  const { data: stores = [], isLoading: storesLoading } = useQuery<Store[]>({
-    queryKey: ["/api/supply-chain/store"],
-  });
-
-  const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ["/api/supply-chain/event"],
-  });
-
-  const { data: weatherAlerts = [], isLoading: weatherLoading } = useQuery<WeatherAlert[]>({
-    queryKey: ["/api/supply-chain/weatheralert"],
-  });
-
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status) => {
     switch (status.toLowerCase()) {
       case "in transit":
       case "operational":
@@ -62,7 +101,7 @@ function SupplyChainDashboard() {
     }
   };
 
-  const getSeverityBadgeVariant = (severity: string) => {
+  const getSeverityBadgeVariant = (severity) => {
     switch (severity.toLowerCase()) {
       case "high":
       case "critical":
@@ -77,7 +116,7 @@ function SupplyChainDashboard() {
   };
 
   const renderSummaryCards = () => {
-    if (summaryLoading) {
+    if (loading) {
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[1, 2, 3, 4].map((i) => (
@@ -222,7 +261,7 @@ function SupplyChainDashboard() {
             <CardTitle>Active Shipments</CardTitle>
           </CardHeader>
           <CardContent>
-            {shipmentsLoading ? (
+            {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-12 w-full" />
@@ -268,7 +307,7 @@ function SupplyChainDashboard() {
             <CardTitle>Fleet Status</CardTitle>
           </CardHeader>
           <CardContent>
-            {trucksLoading ? (
+            {loading ? (
               <div className="space-y-2">
                 {[1, 2].map((i) => (
                   <Skeleton key={i} className="h-12 w-full" />
@@ -379,33 +418,13 @@ function SupplyChainDashboard() {
 function AIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
-  // Fetch chat messages
-  const { data: messages = [] } = useQuery<ChatMessage[]>({
-    queryKey: ["/api/chat/messages"],
-    enabled: isOpen,
-  });
-
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      return apiRequest("POST", "/api/chat/messages", {
-        role: "user",
-        content,
-        userId: "demo-user",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/messages"] });
-      setInputMessage("");
-    },
-  });
 
   useEffect(() => {
     if (isOpen) {
@@ -414,18 +433,53 @@ function AIChat() {
   }, [messages, isOpen]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || sendMessageMutation.isPending) return;
-    sendMessageMutation.mutate(inputMessage);
+    if (!inputMessage.trim() || isLoading) return;
+    
+    const userMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: inputMessage,
+      timestamp: new Date().toISOString(),
+      userId: "demo-user"
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
+    
+    try {
+      const response = await apiClient.request('POST', '/api/chat/messages', {
+        role: "user",
+        content: inputMessage,
+        userId: "demo-user"
+      });
+      
+      // Fetch updated messages
+      const updatedMessages = await apiClient.request('GET', '/api/chat/messages');
+      setMessages(updatedMessages);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Add error message
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Sorry, I'm having trouble connecting right now. Please try again.",
+        timestamp: new Date().toISOString(),
+        userId: "demo-user"
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  const formatMessageContent = (content: string) => {
+  const formatMessageContent = (content) => {
     return content.split('\n').map((line, index) => {
       if (line.startsWith('• ') || line.startsWith('- ')) {
         return <div key={index} className="ml-4">{line}</div>;
@@ -452,7 +506,7 @@ function AIChat() {
     <div className="fixed bottom-6 right-6 z-50">
       {/* Chat Widget */}
       {isOpen && (
-        <Card className="mb-4 w-96 h-96 shadow-2xl animate-slide-up">
+        <Card className="mb-4 w-96 h-96 shadow-2xl">
           {/* Chat Header */}
           <CardHeader className="p-4 bg-blue-600 text-white rounded-t-lg">
             <div className="flex items-center justify-between">
@@ -510,7 +564,7 @@ function AIChat() {
               ))}
               
               {/* Typing Indicator */}
-              {sendMessageMutation.isPending && (
+              {isLoading && (
                 <div className="text-left">
                   <div className="inline-block bg-gray-100 p-3 rounded-lg">
                     <div className="flex space-x-1">
@@ -534,12 +588,12 @@ function AIChat() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about shipments, delays, weather..."
-                disabled={sendMessageMutation.isPending}
+                disabled={isLoading}
                 className="flex-1"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || sendMessageMutation.isPending}
+                disabled={!inputMessage.trim() || isLoading}
                 size="sm"
               >
                 <i className="fas fa-paper-plane"></i>
@@ -585,13 +639,11 @@ function AIChat() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen">
-        <SupplyChainDashboard />
-        <AIChat />
-        <Toaster />
-      </div>
-    </QueryClientProvider>
+    <div className="min-h-screen">
+      <SupplyChainDashboard />
+      <AIChat />
+      <Toaster />
+    </div>
   );
 }
 
