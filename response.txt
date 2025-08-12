@@ -1,0 +1,1 @@
+{"status":"healthy","message":"Supply Chain Digital Twin API is running"}

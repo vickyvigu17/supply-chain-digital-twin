@@ -32,16 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add a simple health check endpoint
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "AI Agent is running"}
-
-# Add a test endpoint for debugging
-@app.get("/test")
-async def test_endpoint():
-    return {"message": "Test endpoint working", "timestamp": datetime.datetime.now().isoformat()}
-
 # Global chat messages storage
 chat_messages: List[ChatMessage] = []
 
@@ -68,25 +58,13 @@ def generate_ai_response(user_message: str) -> str:
 @app.get("/api/chat/messages")
 async def get_chat_messages():
     """Get chat messages"""
-    try:
-        # Convert ChatMessage objects to dictionaries using .dict() method
-        messages = []
-        for msg in chat_messages:
-            messages.append(msg.dict())
-        return messages
-    except Exception as e:
-        print(f"Error getting chat messages: {e}")
-        return []
+    return [asdict(msg) for msg in chat_messages]
 
 @app.post("/api/chat/messages")
 async def create_chat_message(request: ChatRequest):
     """Create a new chat message"""
-    print(f"Received chat request: {request}")
-    
     user_message = request.content
     user_id = request.userId
-    
-    print(f"Processing message: '{user_message}' from user: {user_id}")
     
     # Store user message
     user_msg = ChatMessage(
@@ -98,12 +76,8 @@ async def create_chat_message(request: ChatRequest):
     )
     chat_messages.append(user_msg)
     
-    print(f"User message stored. Total messages: {len(chat_messages)}")
-    
     # Generate AI response
     ai_response = generate_ai_response(user_message)
-    
-    print(f"AI response generated: {len(ai_response)} characters")
     
     # Store AI response
     ai_msg = ChatMessage(
@@ -114,8 +88,6 @@ async def create_chat_message(request: ChatRequest):
         userId=user_id
     )
     chat_messages.append(ai_msg)
-    
-    print(f"AI message stored. Total messages: {len(chat_messages)}")
     
     return {"success": True, "message": "Message sent and response generated"}
 
@@ -191,6 +163,11 @@ async def get_weather_alerts():
 @app.get("/")
 async def serve_frontend():
     return {"message": "Supply Chain Digital Twin API is running!"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "message": "Supply Chain Digital Twin API is running"}
 
 if __name__ == "__main__":
     import uvicorn
