@@ -30,29 +30,12 @@ app.add_middleware(
 # Global chat messages storage
 chat_messages: List[ChatMessage] = []
 
-# Working AI Agent with LLM Integration
-async def generate_ai_response(user_message: str) -> str:
-    try:
-        # Use a free LLM API (you can replace this with OpenAI, Gemini, etc.)
-        import aiohttp
-        
-        # Simple prompt engineering for supply chain context
-        system_prompt = """You are a Supply Chain AI Assistant. You help users understand their supply chain operations including:
-        - Shipment status and delays
-        - Weather impact analysis
-        - Fleet and truck information
-        - Distribution center status
-        - Inventory levels
-        - Route optimization
-        
-        Provide helpful, specific responses with emojis and clear formatting. If you don't have specific data, provide general supply chain insights."""
-        
-        # For now, use a simple but intelligent response system
-        # You can replace this with actual LLM API calls
-        message_lower = user_message.lower()
-        
-        if any(word in message_lower for word in ["delay", "delays", "late"]):
-            return """🚨 **Current Delays Analysis**
+# Working AI Agent with Enhanced Responses
+def generate_ai_response(user_message: str) -> str:
+    message_lower = user_message.lower()
+    
+    if any(word in message_lower for word in ["delay", "delays", "late"]):
+        return """🚨 **Current Delays Analysis**
 
 📦 **Delayed Shipments:** 3
 • SH0001: Cincinnati → Miami (ETA: 2024-01-15)
@@ -74,9 +57,9 @@ async def generate_ai_response(user_message: str) -> str:
 - Monitor weather alerts for route planning
 - Consider alternative routes for affected shipments
 - Update customer ETAs proactively"""
-        
-        elif any(word in message_lower for word in ["weather", "storm"]):
-            return """🌦️ **Weather Impact Analysis**
+    
+    elif any(word in message_lower for word in ["weather", "storm"]):
+        return """🌦️ **Weather Impact Analysis**
 
 ⚠️ **High Priority Alerts:** 2
 • Storm in Northeast - High severity
@@ -98,9 +81,9 @@ async def generate_ai_response(user_message: str) -> str:
 - Activate weather contingency plans
 - Reroute shipments through unaffected regions
 - Communicate delays to customers"""
-        
-        elif any(word in message_lower for word in ["fleet", "truck"]):
-            return """🚛 **Fleet Status Overview**
+    
+    elif any(word in message_lower for word in ["fleet", "truck"]):
+        return """🚛 **Fleet Status Overview**
 
 📊 **Total Fleet:** 40 trucks
 • In Transit: 25 🚚
@@ -124,9 +107,9 @@ async def generate_ai_response(user_message: str) -> str:
 - 3 trucks available for immediate dispatch
 - Consider repositioning available trucks to high-demand areas
 - Maintenance schedule optimization needed"""
-        
-        elif any(word in message_lower for word in ["distribution", "center", "warehouse"]):
-            return """🏢 **Distribution Centers Status**
+    
+    elif any(word in message_lower for word in ["distribution", "center", "warehouse"]):
+        return """🏢 **Distribution Centers Status**
 
 📊 **Total Centers:** 8
 • Operational: 7 ✅
@@ -146,9 +129,9 @@ async def generate_ai_response(user_message: str) -> str:
 - Southwest Hub maintenance completion: 2 days
 - Consider load balancing between operational centers
 - Monitor capacity levels for peak season planning"""
-        
-        elif any(word in message_lower for word in ["shipment", "delivery", "package"]):
-            return """📦 **Shipment Overview**
+    
+    elif any(word in message_lower for word in ["shipment", "delivery", "package"]):
+        return """📦 **Shipment Overview**
 
 📊 **Total Active Shipments:** 45
 • In Transit: 32 🚚
@@ -171,9 +154,9 @@ async def generate_ai_response(user_message: str) -> str:
 - Expedite 3 delayed shipments
 - Monitor 2 pending shipments
 - Optimize routes for better performance"""
-        
-        elif any(word in message_lower for word in ["inventory", "stock", "supply"]):
-            return """📦 **Inventory Status**
+    
+    elif any(word in message_lower for word in ["inventory", "stock", "supply"]):
+        return """📦 **Inventory Status**
 
 📊 **Overall Stock Level:** 78%
 • High Priority Items: 92% ✅
@@ -194,9 +177,9 @@ async def generate_ai_response(user_message: str) -> str:
 - Place orders for 3 critical items
 - Review reorder points for 9 warning items
 - Consider demand forecasting for seasonal items"""
-        
-        else:
-            return """🤖 **Supply Chain AI Assistant**
+    
+    else:
+        return """🤖 **Supply Chain AI Assistant**
 
 I can help you with comprehensive supply chain insights:
 
@@ -226,10 +209,6 @@ I can help you with comprehensive supply chain insights:
 • Demand forecasting insights
 
 💡 **Ask me anything specific about your supply chain operations!**"""
-            
-    except Exception as e:
-        print(f"Error generating AI response: {e}")
-        return "🤖 I'm experiencing technical difficulties. Please try again or contact support."
 
 # API Endpoints
 @app.get("/api/chat/messages")
@@ -262,7 +241,7 @@ async def create_chat_message(request: ChatRequest):
     chat_messages.append(user_msg)
     print(f"User message stored. Total messages: {len(chat_messages)}")
     
-    ai_response = await generate_ai_response(user_message)
+    ai_response = generate_ai_response(user_message)
     print(f"AI response generated: {len(ai_response)} characters")
     
     ai_msg = ChatMessage(
@@ -322,7 +301,7 @@ async def get_stores():
 
 @app.get("/api/supply-chain/event")
 async def get_events():
-    """Get events"""
+    """Get events with source and destination"""
     return [
         {
             "event_id": "EVT001", 
