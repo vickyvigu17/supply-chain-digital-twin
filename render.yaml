@@ -4,8 +4,8 @@ services:
     env: python
     buildCommand: |
       pip install -r requirements.txt
-      cd client && npm install && npm run build && cd ..
-      rm -rf static && mkdir -p static && cp -r client/build/* static/
+      # Use pre-built static files instead of rebuilding
+      # The static directory is already built and committed
     startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
