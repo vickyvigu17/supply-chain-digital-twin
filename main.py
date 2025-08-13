@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import datetime
-import requests
-import json
 from typing import List
 from pydantic import BaseModel
 import os
