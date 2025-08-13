@@ -363,4 +363,4 @@ class AIService:
         }
 
 # Global AI service instance
-ai_service = AIService()
+ai_service = AIService("openai")
