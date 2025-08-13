@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import MapView from "./MapView";
 import "./index.css";
@@ -8,53 +8,78 @@ function App() {
     distribution_centers: [],
     stores: [],
     trucks: [],
-    purchase_orders: [],
     shipments: [],
     events: [],
-    weather_alerts: [],
-    inventory: [],
-    returns: [],
-    skus: []
+    weather_alerts: []
   });
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [highlightedEntity, setHighlightedEntity] = useState(null);
   const [activeTab, setActiveTab] = useState("map");
+  
+  // AI Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState("");
 
-  // Use your deployed backend URL or environment variable
-  const apiUrl = process.env.REACT_APP_API_URL || "";
+  // Use production URL for deployment
+  const apiUrl = window.location.hostname === "localhost" 
+    ? "http://localhost:8000" 
+    : "https://supply-chain-digital-twin-1.onrender.com";
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch all node types
-        const nodeTypes = [
-          'distribution_centers', 'stores', 'trucks', 'purchase_orders', 
-          'shipments', 'events', 'weather_alerts', 'inventory', 'returns', 'skus'
-        ];
-        
-        const responses = await Promise.all([
-          ...nodeTypes.map(type => axios.get(`${apiUrl}/api/nodes/${type}`)),
-          axios.get(`${apiUrl}/api/summary`)
+        const [summaryRes, eventsRes, shipmentsRes, trucksRes, dcsRes, storesRes, weatherRes] = await Promise.all([
+          axios.get(`${apiUrl}/api/supply-chain/summary`),
+          axios.get(`${apiUrl}/api/supply-chain/event`),
+          axios.get(`${apiUrl}/api/supply-chain/shipment`),
+          axios.get(`${apiUrl}/api/supply-chain/truck`),
+          axios.get(`${apiUrl}/api/supply-chain/distributioncenter`),
+          axios.get(`${apiUrl}/api/supply-chain/store`),
+          axios.get(`${apiUrl}/api/supply-chain/weatheralert`)
         ]);
         
-        const data = {};
-        nodeTypes.forEach((type, index) => {
-          data[type] = responses[index].data;
+        setSummary(summaryRes.data);
+        setSupplyChainData({
+          events: eventsRes.data,
+          shipments: shipmentsRes.data,
+          trucks: trucksRes.data,
+          distribution_centers: dcsRes.data,
+          stores: storesRes.data,
+          weather_alerts: weatherRes.data
         });
-        
-        setSupplyChainData(data);
-        setSummary(responses[responses.length - 1].data);
       } catch (err) {
         console.error("Error fetching data:", err);
-        // Set empty data on error
       }
       setLoading(false);
     };
     fetchData();
   }, [apiUrl]);
+
+  // AI Chat functions
+  const sendMessage = async () => {
+    if (!inputMessage.trim()) return;
+    
+    try {
+      const response = await axios.post(`${apiUrl}/api/chat/messages`, {
+        role: "user",
+        content: inputMessage,
+        userId: "user123"
+      });
+      
+      if (response.data.success) {
+        // Fetch updated messages
+        const messagesResponse = await axios.get(`${apiUrl}/api/chat/messages`);
+        setChatMessages(messagesResponse.data);
+        setInputMessage("");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
 
   const getFilteredData = () => {
     switch (selectedFilter) {
@@ -75,11 +100,9 @@ function App() {
           )
         };
       case "active_shipments":
-        console.log("Active shipments filter - total shipments:", supplyChainData.shipments.length);
         const activeShipments = supplyChainData.shipments.filter(sh => 
           sh.status === "In Transit" || sh.status === "Processing"
         );
-        console.log("Active shipments found:", activeShipments.length);
         return {
           stores: supplyChainData.stores,
           distribution_centers: supplyChainData.distribution_centers,
@@ -90,7 +113,6 @@ function App() {
         };
       case "weather_impacted":
         const weatherRegions = supplyChainData.weather_alerts.map(alert => alert.region);
-        console.log("Weather impacted regions:", weatherRegions);
         return {
           stores: supplyChainData.stores.filter(store => 
             weatherRegions.includes(store.region)
@@ -98,14 +120,12 @@ function App() {
           distribution_centers: supplyChainData.distribution_centers.filter(dc => 
             weatherRegions.includes(dc.region)
           ),
-          trucks: supplyChainData.trucks.filter(truck => {
-            // Find truck's region based on current location
-            const store = supplyChainData.stores.find(s => s.location === truck.current_location);
-            const dc = supplyChainData.distribution_centers.find(d => d.location === truck.current_location);
-            const region = store?.region || dc?.region;
-            return weatherRegions.includes(region);
-          }),
-          shipments: supplyChainData.shipments
+          trucks: supplyChainData.trucks.filter(truck => 
+            weatherRegions.includes(truck.current_location)
+          ),
+          shipments: supplyChainData.shipments.filter(sh => 
+            weatherRegions.includes(sh.origin) || weatherRegions.includes(sh.destination)
+          )
         };
       default:
         return {
@@ -117,115 +137,21 @@ function App() {
     }
   };
 
-  const renderSummaryCards = () => (
-    <div className="summary-grid">
-      <div className="summary-card">
-        <h3>Distribution Centers</h3>
-        <div className="summary-number">{summary.distribution_centers || 0}</div>
-      </div>
-      <div className="summary-card">
-        <h3>Stores</h3>
-        <div className="summary-number">{summary.stores || 0}</div>
-      </div>
-      <div className="summary-card">
-        <h3>Active Trucks</h3>
-        <div className="summary-number">{summary.trucks || 0}</div>
-      </div>
-      <div className="summary-card">
-        <h3>Purchase Orders</h3>
-        <div className="summary-number">{summary.purchase_orders || 0}</div>
-      </div>
-      <div className="summary-card">
-        <h3>Shipments</h3>
-        <div className="summary-number">{summary.shipments || 0}</div>
-      </div>
-      <div className="summary-card">
-        <h3>Active Events</h3>
-        <div className="summary-number">{summary.events || 0}</div>
-      </div>
-    </div>
-  );
+  const handleEntityClick = (entity) => {
+    setHighlightedEntity(entity);
+  };
 
-  const renderDataTable = (data, title) => (
-    <div className="data-table-container">
-      <h3>{title}</h3>
-      <div className="data-table">
-        <table>
-          <thead>
-            <tr>
-              {data.length > 0 && Object.keys(data[0]).map(key => (
-                <th key={key}>{key.replace('_', ' ').toUpperCase()}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.slice(0, 10).map((item, index) => (
-              <tr key={index}>
-                {Object.values(item).map((value, i) => (
-                  <td key={i}>{typeof value === 'object' ? JSON.stringify(value) : value}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.length > 10 && (
-          <div className="table-footer">
-            Showing 10 of {data.length} records
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderEventsPanel = () => (
-    <div className="events-panel">
-      <h3>Recent Events</h3>
-      <div className="events-list">
-        {supplyChainData.events.slice(0, 8).map(event => (
-          <div key={event.event_id} className={`event-item ${event.resolution_status.toLowerCase().replace(' ', '-')}`}>
-            <div className="event-header">
-              <span className="event-type">{event.event_type}</span>
-              <span className={`event-status ${event.resolution_status.toLowerCase().replace(' ', '-')}`}>
-                {event.resolution_status}
-              </span>
-            </div>
-            <div className="event-details">
-              <div>Entity: {event.impacted_entity}</div>
-              <div>Time: {new Date(event.timestamp).toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderWeatherPanel = () => (
-    <div className="weather-panel">
-      <h3>Weather Alerts</h3>
-      <div className="weather-list">
-        {supplyChainData.weather_alerts.slice(0, 5).map(alert => (
-          <div key={alert.alert_id} className={`weather-item severity-${alert.severity.toLowerCase()}`}>
-            <div className="weather-header">
-              <span className="weather-type">{alert.alert_type}</span>
-              <span className={`weather-severity severity-${alert.severity.toLowerCase()}`}>
-                {alert.severity}
-              </span>
-            </div>
-            <div className="weather-details">
-              <div>Region: {alert.region}</div>
-              <div>Date: {alert.date}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <div>Loading Supply Chain Digital Twin...</div>
+      <div className="container">
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading Supply Chain Data...</p>
+        </div>
       </div>
     );
   }
@@ -233,137 +159,288 @@ function App() {
   const filteredData = getFilteredData();
 
   return (
-    <div className="app">
-      <header className="app-header">
+    <div className="container">
+      <div className="header">
         <h1>🏭 Supply Chain Digital Twin</h1>
         <p>Ontology-Based Graph Model for Retail Supply Chain Management</p>
-      </header>
+      </div>
 
-      <nav className="app-nav">
-        <button 
-          className={activeTab === "map" ? "nav-button active" : "nav-button"}
-          onClick={() => setActiveTab("map")}
-        >
-          Map View
-        </button>
-        <button 
-          className={activeTab === "data" ? "nav-button active" : "nav-button"}
-          onClick={() => setActiveTab("data")}
-        >
-          Data Tables
-        </button>
-        <button 
-          className={activeTab === "analytics" ? "nav-button active" : "nav-button"}
-          onClick={() => setActiveTab("analytics")}
-        >
-          Analytics
-        </button>
-      </nav>
+      <div className="summary-cards">
+        <div className="summary-card">
+          <div className="icon blue">
+            <i className="fas fa-warehouse"></i>
+          </div>
+          <div className="number">{summary.distribution_centers || 0}</div>
+          <div className="label">Distribution Centers</div>
+        </div>
+        <div className="summary-card">
+          <div className="icon green">
+            <i className="fas fa-store"></i>
+          </div>
+          <div className="number">{summary.stores || 0}</div>
+          <div className="label">Active Stores</div>
+        </div>
+        <div className="summary-card">
+          <div className="icon orange">
+            <i className="fas fa-truck"></i>
+          </div>
+          <div className="number">{summary.trucks || 0}</div>
+          <div className="label">Active Trucks</div>
+        </div>
+        <div className="summary-card">
+          <div className="icon red">
+            <i className="fas fa-exclamation-triangle"></i>
+          </div>
+          <div className="number">{supplyChainData.events.filter(e => e.resolution_status === "Open").length}</div>
+          <div className="label">Active Issues</div>
+        </div>
+      </div>
 
-      {activeTab === "map" && (
-        <div className="map-container">
-          <div className="controls-panel">
-            <div className="filter-controls">
-              <label htmlFor="filter-select">Filter View:</label>
-              <select 
-                id="filter-select"
-                value={selectedFilter} 
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Entities</option>
-                <option value="issues">Issues & Delays</option>
-                <option value="active_shipments">Active Shipments</option>
-                <option value="weather_impacted">Weather Impacted</option>
-              </select>
-            </div>
+      <div className="controls">
+        <select 
+          className="filter-select"
+          value={selectedFilter} 
+          onChange={(e) => setSelectedFilter(e.target.value)}
+        >
+          <option value="all">All Entities</option>
+          <option value="issues">Issues & Delays</option>
+          <option value="active_shipments">Active Shipments</option>
+          <option value="weather_impacted">Weather Impacted</option>
+        </select>
+        <button className="refresh-btn" onClick={() => window.location.reload()}>
+          <i className="fas fa-sync-alt"></i>
+          Refresh
+        </button>
+      </div>
+
+      <div className="main-content">
+        <div className="map-section">
+          <h3>🏭 Supply Chain Network Map</h3>
+          <div className="map-container">
+            <MapView 
+              dcs={filteredData.distribution_centers}
+              stores={filteredData.stores}
+              shipments={filteredData.shipments}
+              trucks={filteredData.trucks}
+              highlight={highlightedEntity}
+              onEntityClick={handleEntityClick}
+            />
+          </div>
+        </div>
+
+        <div className="data-section">
+          <h3>📊 Data Tables</h3>
+          <div className="tabs">
+            <button 
+              className={`tab ${activeTab === 'map' ? 'active' : ''}`}
+              onClick={() => handleTabChange('map')}
+            >
+              Map View
+            </button>
+            <button 
+              className={`tab ${activeTab === 'shipments' ? 'active' : ''}`}
+              onClick={() => handleTabChange('shipments')}
+            >
+              Shipments
+            </button>
+            <button 
+              className={`tab ${activeTab === 'trucks' ? 'active' : ''}`}
+              onClick={() => handleTabChange('trucks')}
+            >
+              Fleet
+            </button>
+            <button 
+              className={`tab ${activeTab === 'events' ? 'active' : ''}`}
+              onClick={() => handleTabChange('events')}
+            >
+              Events
+            </button>
+            <button 
+              className={`tab ${activeTab === 'weather' ? 'active' : ''}`}
+              onClick={() => handleTabChange('weather')}
+            >
+              Weather
+            </button>
           </div>
 
-          <div className="map-and-panels">
-            <div className="map-section">
-              <MapView 
-                dcs={filteredData.distribution_centers || []}
-                stores={filteredData.stores || []}
-                shipments={filteredData.shipments || []}
-                trucks={filteredData.trucks || []}
-                highlight={highlightedEntity}
-                onEntityClick={setHighlightedEntity}
+          <div className={`tab-content ${activeTab === 'shipments' ? 'active' : ''}`}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Shipment ID</th>
+                  <th>Status</th>
+                  <th>Route</th>
+                  <th>Carrier</th>
+                  <th>ETA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.shipments.map((shipment) => (
+                  <tr key={shipment.shipment_id}>
+                    <td>{shipment.shipment_id}</td>
+                    <td>
+                      <span className={`status-badge status-${shipment.status.toLowerCase().replace(' ', '-')}`}>
+                        {shipment.status}
+                      </span>
+                    </td>
+                    <td>{shipment.origin} → {shipment.destination}</td>
+                    <td>{shipment.carrier}</td>
+                    <td>{shipment.eta}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={`tab-content ${activeTab === 'trucks' ? 'active' : ''}`}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Truck ID</th>
+                  <th>Carrier</th>
+                  <th>Status</th>
+                  <th>Current Location</th>
+                  <th>Route</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.trucks.map((truck) => (
+                  <tr key={truck.truck_id}>
+                    <td>{truck.truck_id}</td>
+                    <td>{truck.carrier}</td>
+                    <td>
+                      <span className={`status-badge status-${truck.status.toLowerCase().replace(' ', '-')}`}>
+                        {truck.status}
+                      </td>
+                    <td>{truck.current_location}</td>
+                    <td>{truck.route_id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={`tab-content ${activeTab === 'events' ? 'active' : ''}`}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Event Type</th>
+                  <th>Impacted Entity</th>
+                  <th>Route</th>
+                  <th>Status</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplyChainData.events.map((event) => (
+                  <tr key={event.event_id}>
+                    <td>{event.event_type}</td>
+                    <td>{event.impacted_entity}</td>
+                    <td>{event.source} → {event.destination}</td>
+                    <td>
+                      <span className={`status-badge ${event.resolution_status === 'Open' ? 'status-delayed' : 'status-operational'}`}>
+                        {event.resolution_status}
+                      </span>
+                    </td>
+                    <td>{event.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={`tab-content ${activeTab === 'weather' ? 'active' : ''}`}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Alert Type</th>
+                  <th>Region</th>
+                  <th>Severity</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplyChainData.weather_alerts.map((alert) => (
+                  <tr key={alert.alert_id}>
+                    <td>{alert.alert_type}</td>
+                    <td>{alert.region}</td>
+                    <td>
+                      <span className={`status-badge severity-${alert.severity.toLowerCase()}`}>
+                        {alert.severity}
+                      </span>
+                    </td>
+                    <td>{alert.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {highlightedEntity && (
+        <div className="entity-details">
+          <h4>Entity Details</h4>
+          <div className="detail-row">
+            <span className="detail-label">Type:</span>
+            <span className="detail-value">{highlightedEntity.entityType}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">ID:</span>
+            <span className="detail-value">{highlightedEntity[Object.keys(highlightedEntity)[0]]}</span>
+          </div>
+          {highlightedEntity.status && (
+            <div className="detail-row">
+              <span className="detail-label">Status:</span>
+              <span className="detail-value">{highlightedEntity.status}</span>
+            </div>
+          )}
+          {highlightedEntity.location && (
+            <div className="detail-row">
+              <span className="detail-label">Location:</span>
+              <span className="detail-value">{highlightedEntity.location}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI Chat Widget */}
+      <div className="ai-chat-widget">
+        <button 
+          className="chat-toggle-btn"
+          onClick={() => setIsChatOpen(!isChatOpen)}
+        >
+          🤖 AI Assistant
+        </button>
+        
+        {isChatOpen && (
+          <div className="chat-container">
+            <div className="chat-header">
+              <h3>AI Supply Chain Assistant</h3>
+              <button onClick={() => setIsChatOpen(false)}>✕</button>
+            </div>
+            
+            <div className="chat-messages">
+              {chatMessages.map((msg) => (
+                <div key={msg.id} className={`message ${msg.role}`}>
+                  <div className="message-content">{msg.content}</div>
+                </div>
+                ))}
+            </div>
+            
+            <div className="chat-input">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Ask about delays, weather, fleet..."
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
               />
-            </div>
-            
-            <div className="side-panels">
-              {renderEventsPanel()}
-              {renderWeatherPanel()}
+              <button onClick={sendMessage}>Send</button>
             </div>
           </div>
-        </div>
-      )}
-
-      {activeTab === "data" && (
-        <div className="data-view">
-          {renderSummaryCards()}
-          <div className="tables-container">
-            {renderDataTable(supplyChainData.distribution_centers, "Distribution Centers")}
-            {renderDataTable(supplyChainData.stores, "Stores")}
-            {renderDataTable(supplyChainData.trucks, "Trucks")}
-            {renderDataTable(supplyChainData.purchase_orders, "Purchase Orders")}
-            {renderDataTable(supplyChainData.shipments, "Shipments")}
-          </div>
-        </div>
-      )}
-
-      {activeTab === "analytics" && (
-        <div className="analytics-view">
-          {renderSummaryCards()}
-          <div className="analytics-panels">
-            <div className="analytics-section">
-              <h3>Supply Chain Health</h3>
-              <div className="health-metrics">
-                <div className="metric">
-                  <label>On-Time Delivery Rate</label>
-                  <div className="metric-value">
-                    {supplyChainData.shipments.length > 0 ? 
-                      (100 - (supplyChainData.events.filter(e => e.event_type === "Delay").length / supplyChainData.shipments.length * 100)).toFixed(1) : 
-                      "0"
-                    }%
-                  </div>
-                </div>
-                <div className="metric">
-                  <label>Active Issues</label>
-                  <div className="metric-value">
-                    {supplyChainData.events.filter(e => e.resolution_status !== "Resolved").length}
-                  </div>
-                </div>
-                <div className="metric">
-                  <label>Weather Alerts</label>
-                  <div className="metric-value">
-                    {supplyChainData.weather_alerts.filter(w => w.severity === "High" || w.severity === "Critical").length}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="analytics-section">
-              <h3>Regional Distribution</h3>
-              <div className="regional-stats">
-                {["Northeast", "South", "Midwest", "West"].map(region => {
-                  const regionStores = supplyChainData.stores.filter(s => s.region === region).length;
-                  const regionDCs = supplyChainData.distribution_centers.filter(dc => dc.region === region).length;
-                  return (
-                    <div key={region} className="region-stat">
-                      <div className="region-name">{region}</div>
-                      <div className="region-data">
-                        <span>{regionDCs} DCs</span>
-                        <span>{regionStores} Stores</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
