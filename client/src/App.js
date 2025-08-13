@@ -71,22 +71,21 @@ function App() {
 
     switch (selectedFilter) {
       case "issues":
-        return {
-          stores: safeData.stores.filter(store => 
-            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(store.store_id))
-          ),
-          distribution_centers: safeData.distribution_centers.filter(dc => 
-            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(dc.dc_id))
-          ),
-          trucks: safeData.trucks.filter(truck => 
-            truck.status === "Delayed" || 
-            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(truck.truck_id))
-          ),
-          shipments: safeData.shipments.filter(shipment => 
-            shipment.status === "Delayed" || 
-            safeData.events.some(event => event.impacted_entity && event.impacted_entity.includes(shipment.shipment_id))
-          )
-        };
+  return {
+    stores: (supplyChainData.stores || []).filter(store =>
+      (supplyChainData.events || []).some(e => e.impacted_entity?.includes(store.store_id))
+    ),
+    distribution_centers: (supplyChainData.distribution_centers || []).filter(dc =>
+      (supplyChainData.events || []).some(e => e.impacted_entity?.includes(dc.dc_id))
+    ),
+    trucks: (supplyChainData.trucks || []).filter(truck =>
+      truck.status === "Delayed" ||
+      (supplyChainData.events || []).some(e => e.impacted_entity?.includes(truck.truck_id))
+    ),
+    shipments: (supplyChainData.shipments || []).filter(sh =>
+      sh.status === "Delayed" || sh.status === "Processing"
+    )
+  };
       case "active_shipments":
         return {
           stores: safeData.stores,
@@ -386,6 +385,10 @@ function App() {
           </div>
         </div>
       )}
+
+<button onClick={() => setShowAIQuery(true)} className="ai-quick-btn">🤖 Ask AI</button>
+{showAIQuery && <AIQueryInterface onClose={() => setShowAIQuery(false)} />}
+
 
       {activeTab === "ai" && (
         <div className="ai-view">
