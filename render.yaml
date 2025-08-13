@@ -1,11 +1,10 @@
 services:
   - type: web
-    name: supply-chain-digital-twin
+    name: supply-chain-digital-twin-NEW
     env: python
     buildCommand: |
       pip install -r requirements.txt
-      # Use pre-built static files instead of rebuilding
-      # The static directory is already built and committed
+      # Use pre-built static files - no frontend rebuild
     startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
