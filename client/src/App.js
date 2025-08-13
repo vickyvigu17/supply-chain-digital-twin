@@ -311,8 +311,9 @@ function App() {
                     <td>
                       <span className={`status-badge status-${truck.status.toLowerCase().replace(' ', '-')}`}>
                         {truck.status}
-                      </td>
+                      </span>
                     <td>{truck.current_location}</td>
+                    </td>
                     <td>{truck.route_id}</td>
                   </tr>
                 ))}
