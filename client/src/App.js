@@ -23,7 +23,10 @@ function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
 
-  const apiUrl = "http://localhost:8000";
+  // Use production URL for deployment
+  const apiUrl = window.location.hostname === "localhost" 
+    ? "http://localhost:8000" 
+    : "https://supply-chain-digital-twin-1.onrender.com";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,7 +57,7 @@ function App() {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [apiUrl]);
 
   // AI Chat functions
   const sendMessage = async () => {

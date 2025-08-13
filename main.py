@@ -1,10 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import datetime
 import requests
 import json
 from typing import List
 from pydantic import BaseModel
+import os
 
 # Pydantic models
 class ChatMessage(BaseModel):
@@ -30,6 +33,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+# Mount static files for production
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global chat storage
 chat_messages: List[ChatMessage] = []
@@ -462,7 +469,9 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint - serve frontend"""
+    if os.path.exists("static/index.html"):
+        return FileResponse("static/index.html")
     return {"message": "Supply Chain Digital Twin API is running!"}
 
 if __name__ == "__main__":
