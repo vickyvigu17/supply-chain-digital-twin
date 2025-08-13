@@ -279,4 +279,4 @@ class AIService:
         }
 
 # Global AI service instance
-ai_service = AIService("huggingface")  # Start with free Hugging Face
+ai_service = AIService("openai")  # Start with free OepnAI
