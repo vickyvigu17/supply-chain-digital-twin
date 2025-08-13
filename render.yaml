@@ -1,12 +1,20 @@
 services:
   - type: web
     name: supply-chain-digital-twin
-    runtime: python
-    plan: free
-    buildCommand: "./start-render.sh"
-    startCommand: "python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+    env: python
+    buildCommand: |
+      python -m pip install --upgrade pip
+      python -m pip install -r requirements.txt
+      cd client
+      npm install --no-audit --no-fund --legacy-peer-deps
+      npm run build
+      cd ..
+      rm -rf static
+      mkdir -p static
+      cp -r client/build/* static/
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.0
-      - key: NODE_VERSION  
-        value: 18.17.0
+        value: 3.11.0
+      - key: NODE_VERSION
+        value: 20.11.1
