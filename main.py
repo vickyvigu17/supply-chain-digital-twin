@@ -8,6 +8,11 @@ import json
 from typing import List
 from pydantic import BaseModel
 import os
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
 
 # Pydantic models
 class ChatMessage(BaseModel):
@@ -35,15 +40,163 @@ app.add_middleware(
 )
 
 # Mount static files for production
-if os.path.exists("static"):
+# If the CRA build was copied into ./static (which contains ./static/index.html and ./static/static/* assets),
+# mount the inner assets directory to match URLs like /static/js/* used by index.html
+if os.path.exists("static/static"):
+    app.mount("/static", StaticFiles(directory="static/static"), name="static")
+elif os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global chat storage
 chat_messages: List[ChatMessage] = []
 
-# Simple AI Agent using rule-based system
+# ---------------------------
+# LLM Adapter (single agent)
+# ---------------------------
+
+def _call_openai(user_message: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    url = "https://api.openai.com/v1/chat/completions"
+
+    system_prompt = (
+        "You are a helpful Supply Chain Digital Twin assistant. "
+        "Answer concisely in markdown. If numbers are not provided, use reasonable illustrative examples."
+    )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": float(os.getenv("LLM_TEMPERATURE", "0.2")),
+        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "600")),
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"OpenAI error: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def _call_groq(user_message: str) -> str:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY not set")
+    model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    # Groq is API-compatible with OpenAI chat completions
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    system_prompt = (
+        "You are a helpful Supply Chain Digital Twin assistant. "
+        "Answer concisely in markdown. If numbers are not provided, use reasonable illustrative examples."
+    )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": float(os.getenv("LLM_TEMPERATURE", "0.2")),
+        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "600")),
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Groq error: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def _call_anthropic(user_message: str) -> str:
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    model = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+    url = "https://api.anthropic.com/v1/messages"
+
+    system_prompt = (
+        "You are a helpful Supply Chain Digital Twin assistant. "
+        "Answer concisely in markdown. If numbers are not provided, use reasonable illustrative examples."
+    )
+
+    payload = {
+        "model": model,
+        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "600")),
+        "temperature": float(os.getenv("LLM_TEMPERATURE", "0.2")),
+        "system": system_prompt,
+        "messages": [
+            {"role": "user", "content": user_message}
+        ],
+    }
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Anthropic error: {resp.status_code} {resp.text}")
+    data = resp.json()
+    # Anthropic returns a list of content blocks; join text blocks
+    parts = []
+    for block in data.get("content", []):
+        if block.get("type") == "text":
+            parts.append(block.get("text", ""))
+    return "\n".join([p for p in parts if p]).strip()
+
+
+def get_llm_response(user_message: str) -> str:
+    providers = []
+    # Priority order: OpenAI -> Groq -> Anthropic
+    if os.getenv("OPENAI_API_KEY"):
+        providers.append(_call_openai)
+    if os.getenv("GROQ_API_KEY"):
+        providers.append(_call_groq)
+    if os.getenv("ANTHROPIC_API_KEY"):
+        providers.append(_call_anthropic)
+
+    last_error = None
+    for provider in providers:
+        try:
+            return provider(user_message)
+        except Exception as e:
+            last_error = e
+            continue
+
+    if last_error:
+        # Surface info but keep app functional
+        print(f"LLM provider errors, falling back to rule-based: {last_error}")
+    raise RuntimeError("No LLM providers configured")
+
+# Simple AI Agent using rule-based system with optional LLM
 def get_ai_response(user_message: str) -> str:
-    """Get AI response using a smart rule-based system"""
+    """Get AI response using LLMs if configured; otherwise use rule-based."""
+    # Try LLMs first if keys are provided
+    try:
+        if os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY") or os.getenv("ANTHROPIC_API_KEY"):
+            return get_llm_response(user_message)
+    except Exception as _:
+        # If LLM call fails, continue with rule-based responses
+        pass
+
     try:
         message_lower = user_message.lower()
         
@@ -239,7 +392,11 @@ async def get_chat_messages():
     try:
         messages = []
         for msg in chat_messages:
-            messages.append(msg.dict())
+            # Pydantic v2 uses model_dump; keep v1 compat with dict()
+            if hasattr(msg, "model_dump"):
+                messages.append(msg.model_dump())
+            else:
+                messages.append(msg.dict())
         return messages
     except Exception as e:
         print(f"Error getting chat messages: {e}")
