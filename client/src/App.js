@@ -312,8 +312,8 @@ function App() {
                       <span className={`status-badge status-${truck.status.toLowerCase().replace(' ', '-')}`}>
                         {truck.status}
                       </span>
-                    <td>{truck.current_location}</td>
                     </td>
+                    <td>{truck.current_location}</td>
                     <td>{truck.route_id}</td>
                   </tr>
                 ))}
@@ -426,7 +426,7 @@ function App() {
                 <div key={msg.id} className={`message ${msg.role}`}>
                   <div className="message-content">{msg.content}</div>
                 </div>
-                ))}
+              ))}
             </div>
             
             <div className="chat-input">
