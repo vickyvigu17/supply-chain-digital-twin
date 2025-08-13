@@ -6,7 +6,7 @@ import os
 import random
 import datetime
 from typing import List, Dict, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pydantic import BaseModel
 
 # Pydantic models for chat
@@ -58,7 +58,7 @@ def generate_ai_response(user_message: str) -> str:
 @app.get("/api/chat/messages")
 async def get_chat_messages():
     """Get chat messages"""
-    return [asdict(msg) for msg in chat_messages]
+    return [msg.dict() for msg in chat_messages]
 
 @app.post("/api/chat/messages")
 async def create_chat_message(request: ChatRequest):
